@@ -79,7 +79,7 @@ port = 18861
 import os
 if "USAGE" in os.environ:
     usage = float(os.environ["USAGE"])
-else
+else:
     usage = 100 - necessary_cpu
 # ---------------------------------------------------------------------
 
