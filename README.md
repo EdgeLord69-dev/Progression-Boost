@@ -4,8 +4,7 @@
 
 Thanks to Ironclad's grav1an, Miss Moonlight's Lav1e, and Trix's autoboost for inspiring Progression Boost.  
 
-Progression boost is a boosting script for maintaining a consistent quality throughout the whole encode. It works in the same way as Ironclad's grav1an using polynomial regression.  
-It's good out of the box, targeting a high quality target. However, it's also easy to configure it to target a lower quality level. For advanced users, progression boost is very customisable and could be adjusted to fit specific definition of constant quality and achieve a good encode.  
+Progression boost is a boosting script for maintaining a consistent quality throughout the whole encode. It works in the same way as Ironclad's grav1an using polynomial regression, and can be easily configured to target different quality levels and more.  
 
 ### Usage
 
