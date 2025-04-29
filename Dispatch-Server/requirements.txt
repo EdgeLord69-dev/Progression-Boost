@@ -1,0 +1,5 @@
+rpyc
+psutil
+# If you're not using a NVIDIA GPU, replace this with the monitoring
+# tool for your GPU brand.
+nvidia-ml-py

@@ -1,0 +1,458 @@
+#!/usr/bin/env python3
+
+# Progression-Boost
+# Copyright (c) Akatsumekusa and contributors
+# Thanks to Ironclad and their grav1an, Miss Moonlight and their Lav1e.
+# and Trix and their autoboost
+
+
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ //////////////////////////////////
+# The guide and config starts approximately 30 lines below this. Start
+# reading from there.
+# ////////////////////////////////// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+
+
+import argparse
+from functools import partial
+from pathlib import Path
+import numpy as np
+import vapoursynth as vs
+from vapoursynth import core
+
+parser = argparse.ArgumentParser(prog="Progression-Boost", description="Boost encoding parameters to maintain a consistent quality throughout the whole encoding", epilog="For more configs, open `Progression-Boost.py` in a text editor and follow the guide at the very top")
+parser.add_argument("--input", type=Path, required=True, help="Source video file")
+parser.add_argument("--encode-input", type=Path, help="Source file for test encodes. Supports both video file and vpy file (Default: same as `--input`). This file is only used to perform test encodes, while scene detection will be performed using the video file specified in `--input`, and filtering before metric calculation can be set in the `Progression-Boost.py` file itself")
+parser.add_argument("--output-zones", type=Path, required=True, help="Output zones file for encoding")
+parser.add_argument("--temp", type=Path, help="Temporary folder for Progression Boost (Default: output scenes or zones file with file extension replaced by „.boost.tmp“)")
+parser.add_argument("--resume", action="store_true", help="Resume from the temporary folder. By enabling this option, Progression-Boost will reuse finished or unfinished testing encodes. This should be disabled should the parameters for test encode be changed")
+parser.add_argument("--verbose", action="store_true", help="Progression-Boost by default only reports scenes that have received big boost, or scenes that have built unexpected polynomial model. By enabling this option, all scenes will be reported")
+args = parser.parse_args()
+input_file = args.input
+testing_input_file = args.encode_input
+if testing_input_file is None:
+    testing_input_file = input_file
+zones_file = args.output_zones
+temp_dir = args.temp
+if not temp_dir:
+    temp_dir = zones_file.with_suffix(".boost.tmp")
+temp_dir.mkdir(parents=True, exist_ok=True)
+testing_resume = args.resume
+metric_verbose = args.verbose
+
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Before everything, the codes above are for commandline arguments.
+# The commandline arguments are for specifying inputs and outputs while
+# all encoding settings need to be modified within the script starting
+# below.
+# 
+# Specify the commandline arguments like `python Progression-Boost.py
+# --input 01.mkv --output-scenes 01.scenes.json --temp 01.boost.tmp`,
+# Or read the help for commandline arguments using `python
+# Progression-Boost.py --help`.
+#
+# On this note, if you don't like anything you see anywhere in this
+# script, pull requests are always welcome.
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Progression Boost will encode the video multiple times to build a
+# polynomial model in order to decide on the `--crf` used.
+# Specify the `--crf` the test encodes will run at in each pass. The
+# number of `--crf`s in this list also decides the number of test
+# encodes to perform.
+#
+# For most of the common methods of estimating final `--crf`, it's very
+# beneficial to run at least 4 test encode passes. Running 3 passes
+# will only shorten the runtime by one fourth, while reducing the
+# target quality by a huge margin. It shouldn't be preferred, unless
+# the main encoding pass is also performed at a relatively high
+# `--preset`.
+# 
+# Also, if you're wondering why the `--crf` values go so high to 40 and
+# 50, the answer is that even at 40 or 50, some, especially still,
+# scenes can still achieve amazing results with 90+ SSIMU2 mean.
+testing_crfs = sorted([10.00, 17.00, 27.00, 41.00])
+# Please keep this list sorted and only enter `--crf` values that are
+# multiples of 0.25. Progression-Boost will break if this requirement
+# is not followed.
+# ---------------------------------------------------------------------
+# Do you want to change other parameters than `--crf` dynamically
+# during the test encode? This function receives a `--crf` value and
+# should return a string of parameters for the encoder.
+#
+# If you don't want to change any parameters dynamically, leave this
+# function untouched.
+def testing_dynamic_parameters(crf: float) -> str:
+    return ""
+# ---------------------------------------------------------------------
+# Specify the `--video-params` or parameters for the encoder during
+# test encodes. You need to specify everything other than `--input`,
+# `--output`, `--crf` and the parameters you've set to generate
+# dynamically.
+testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 6 --fast-decode 1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Config for the target quality to generate the final `--crf` comes
+# later in the config. But before that, specify a hard limit for the
+# final `--crf`.
+#
+# Specify a `--crf` value that's not too far away from the lowest and
+# the highest `--crf` value specified in `testing_crfs` to be safe.
+final_min_crf = 6.00
+final_max_crf = 50.00
+# ---------------------------------------------------------------------
+# Do you want to change other parameters than `--crf` dynamically
+# for the output zones file (and the eventual final encode)? This
+# function receives a `--crf` value and should return a string of
+# parameters.
+#
+# If you don't want to change any parameters dynamically, leave this
+# function untouched.
+def final_dynamic_parameters(crf: float) -> str:
+    return ""
+# ---------------------------------------------------------------------
+# Specify other `--video-params` or parameters for the encoder for the
+# output zones file. You should not specify `--crf` or the parameters
+# you've set to generate dynamically. You can also choose to not
+# specifying anything here and only specify the parameter directly to
+# av1an.
+final_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset -1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
+# If you have put all your parameters here, you can also enable this
+# option to use the reset flag in the zones file.
+final_parameters_reset = False
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Specify the av1an parameters for scene detection. The results from
+# this scene detection pass will be used both for test encodes and
+# the final encodes. You need to specify all parameters for an
+# `--sc-only` pass other than `-i`, `--temp` and `--scenes`.
+#
+# `--sc-method fast` is often preferred over `--sc-method standard`.
+# The reason is that `--sc-method standard` will sometimes place
+# scenecut not at the actual frame the scene changes, but at a frame
+# optimised for encoder to reuse information.
+# `--sc-method fast` is preferred because, first, the benefit from this
+# optimisation is minimum, and second, it means Progression Boost
+# (or any other boosting scripts) will be much less accurate as a
+# result, since scenes with such optimisation can contain frames from
+# nearby scenes, which said frames will then certainly be overboosted
+# or underboosted. 
+scene_detection_parameters = "--sc-method fast --extra-split 240 --min-scene-len 12 --chunk-method lsmash"
+# Below are the parameters that should always be used. Regular users
+# would not need to modify these.
+scene_detection_parameters += " --sc-only"
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Specify the av1an parameters for the test encodes. You need to
+# specify everything other than `-i`, `-o`, `--temp`, `--resume`,
+# `--video-params`, and `--scenes`.
+#
+# Make sure the number of workers set here suits the number of `--lp`
+# specified in `testing_parameters`.
+testing_av1an_parameters = "--workers 8 --chunk-method lsmash --pix-format yuv420p10le --encoder svt-av1 --concat mkvmerge"
+# Below are the parameters that should always be used. Regular users
+# would not need to modify these.
+testing_av1an_parameters += " -y"
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Once the test encodes finish, Progression Boost will start
+# calculating SSIMU2 for each scenes.
+# If you want to do some filtering before calculating SSIMU2, you can
+# modify the following lines. Otherwise you can leave it unchanged.
+metric_reference = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
+# ---------------------------------------------------------------------
+# Are you hipping, or are you zipping?
+metric_calculate = core.vship.SSIMULACRA2
+# metric_calculate = partial(core.vszip.Metrics, mode=0)
+# ---------------------------------------------------------------------
+# When calculating metrics, we don't need to calculate every single
+# frame. It's often the case that most frame in the same scene are
+# similar to each other.
+# Progression Boost by default uses the most basic method of selecting
+# one frame every few frames. Use this variable to specify the minimum
+# number of frames to be selected and calculated for each scene.
+#
+# As an example, using the default `12`:
+# * When the length of the scene is less than 12 frames, all frames
+#   will be calculated.
+# * When the length of the scene is between 12 and 23 frames, it's also
+#   the case that every frame will be calculated because otherwise
+#   skipping half of the frames will result in less than 12 frames
+#   being calculated.
+# * When the length of the scene is between 24 and 35 frames, every
+#   other frame will be calculated. In total, 12 to 17 frames will be
+#   calculated.
+# 
+# Depending on your encoding target, you may want to increase or
+# decrease this number. Increasing this number means edge cases would
+# have a bigger chance to be included. This is beneficial if you're
+# focusing on bad frames. However, if you focus is on getting a good
+# mean quality, you should be able to reduce this number a lot.
+#
+# If you want to not skip any frames in scenes of any length, set this
+# to a vale higher than `--extra-split` specified in
+# `scene_detection_parameters`.
+metric_min_num_frames = 12
+# ---------------------------------------------------------------------
+# For very long scenes, the logic of `metric_min_num_frames` above
+# might end up skipping too many frames.
+# As an example, using the default `12` for `metric_min_num_frames` on
+# a 360-frame scene, metric will only be calculated every 30 frames.
+# To not skip too many frames at a time, specify a maximum `--every`.
+metric_max_every = 8
+# ---------------------------------------------------------------------
+# Progression Boost by default uses the aforementioned basic method of
+# selecting one frame every few frames. If you are good with this
+# method, you don't need to modify anything here. If you want to use a
+# different method, you can implement it here.
+#
+# This function will be called for the reference clip and the encode
+# clip individually.
+def metric_process(clip: vs.VideoNode) -> vs.VideoNode:
+    every = clip.num_frames // metric_min_num_frames
+    every = np.max([1, np.min([metric_max_every, every])])
+    clip = clip[::every]
+
+# If you want higher speed calculating SSIMU2, here is a hack. What
+# about cropping the clip from 1080p to 900p or 720p? This is tested to
+# have been working very well, producing very similar final `--crf`s
+# while increasing measuring speed significantly. However, since we
+# are cropping away outer edges of the screen, for most anime, we will
+# have proportionally more characters than backgrounds in the cropped
+# compare. This may not may not be preferrable. If you want to enable
+# cropping, uncomment the following line to crop the clip to 900p
+# before comparing.
+#     clip = clip.std.Crop(left=160, right=160, top=90, bottom=90)
+
+    return clip
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# After calcuating metric for frames, we summarise the quality for each
+# scene into a single value. There are two common way in the for this.
+# 
+# The first is the percentile method. The percentile method is better
+# at making sure that the bad frames are good.
+# With an aggressive observation such as observing 10th percentile or
+# lower, in tests, we have had the worst single frame to be within 3
+# to 4 SSIMU2 away from the mean. Compared to the normal 15 or more
+# without boosting, boosting using the percentile method ensures that
+# every frame to be decent.
+# A note is that if you want to guarantee the best quality, you should
+# also increase the number of frames to measured using
+# `metric_min_num_frames` variable specified above in order to prevent
+# random bad frames from slipping through.
+# Otherwise, a looser observation such as observing the 20th or the 30th
+# percentile should also produce a decent result for encodes targeting
+# lower quality targets.
+# 
+# Note that Progression Boost by default uses median-unbiased estimator
+# for calculating percentile, which is much, much more sensitive to
+# extreme values than linear estimator.
+#
+# Specify the `metric_percentile` you want to observe below depending on
+# your desired quality for the encode.
+metric_percentile = 15
+def metric_summarise(scores: list[float]) -> float:
+    return np.percentile(scores, metric_percentile, method="median_unbiased")
+
+# The second is the harmonic mean method, which is studied by Miss
+# Moonlight to have good representation of realworld viewing
+# experience, and ensures a consistent quality thoughout the encode.
+# In tests using harmonic mean method, we've observed very small
+# standard deviation of less than 2.000 in the final encode, compared to
+# a normal value of 3 to 4 without boosting.
+#
+# To use the harmonic mean method, comment the lines above for the
+# percentile method, and uncomment the two lines below.
+# def metric_summarise(scores: list[float]) -> float:
+#     return scores.shape[0] / np.sum(1 / scores)
+
+# If you want to use a different method than percentile or harmonic
+# mean to summarise the data, implement your own method here.
+# 
+# This function is called independently for every scene for every test
+# encode.
+# def metric_summarise(scores: list[float]) -> float:
+#     pass
+# ---------------------------------------------------------------------
+# After calculating the percentile, or harmonic mean, or other
+# quantizer of the data, we fit the quantizers to a polynomial model
+# and try to predict the lowest `--crf` that can reach the target
+# quality we're aiming at.
+# Specify the target quality using the variable below.
+#
+# Note that since we are doing faster test encodes with `--preset 6` by
+# default, the quality we get from test encodes will be lower than that
+# of the final encode using slower presets. You should account for this
+# when setting the number.
+metric_target = 86.500
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+# 
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+
+
+import json
+from numpy.polynomial.polynomial import Polynomial
+import shutil
+import subprocess
+
+
+# Scene dectection
+scene_detection_scenes_file = temp_dir.joinpath("scenes-detection.scenes.json")
+if not testing_resume or not scene_detection_scenes_file.exists():
+    scene_detection_scenes_file.unlink(missing_ok=True)
+    command = [
+        "av1an",
+        "--temp", str(temp_dir.joinpath("scenes-detection.tmp")),
+        "-i", str(input_file),
+        "--scenes", str(scene_detection_scenes_file),
+        *scene_detection_parameters.split()
+    ]
+    subprocess.run(command, text=True, check=True)
+assert scene_detection_scenes_file.exists()
+
+
+# Testing
+for n, crf in enumerate(testing_crfs):
+    if not testing_resume or not temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").exists():
+        command = [
+            "av1an",
+            "--temp", str(temp_dir.joinpath(f"test-encode-{n:0>2}.tmp")),
+            "--keep"
+        ]
+        if testing_resume:
+            command += ["--resume"]
+        command += [
+            "-i", str(testing_input_file),
+            "-o", str(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv")),
+            "--scenes", str(scene_detection_scenes_file),
+            *testing_av1an_parameters.split(),
+            "--video-params", f"--crf {crf:.2f} {testing_dynamic_parameters(crf)} {testing_parameters}"
+        ]
+        subprocess.run(command, text=True, check=True)
+        assert temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").exists()
+
+
+# Metric
+# Ding
+metric_iterate_crfs = testing_crfs.copy() + [final_max_crf, final_min_crf]
+metric_min_reporting_crf = testing_crfs[0]
+metric_max_reporting_crf = np.mean([testing_crfs[1], final_max_crf, final_max_crf, final_max_crf])
+
+metric_frame_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
+metric_frame_rjust = lambda frame: str.rjust(str(frame), metric_frame_rjust_digits.astype(int))
+
+
+with scene_detection_scenes_file.open("r") as scenes_f:
+    scenes = json.load(scenes_f)["scenes"]
+
+with zones_file.open("w") as zones_f:
+    if not testing_resume:
+        for n in range(len(testing_crfs)):
+            temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").unlink(missing_ok=True)
+    metric_encodes = [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
+                                               cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
+
+    for scene in scenes:
+        printing = False
+
+        quantisers = np.empty((len(testing_crfs),), dtype=float)
+
+        reference = metric_reference[scene["start_frame"]:scene["end_frame"]]
+        reference = metric_process(reference)
+        for n, crf in enumerate(testing_crfs):
+            encode = metric_encodes[n][scene["start_frame"]:scene["end_frame"]]
+            encode = metric_process(encode)
+
+            scores = np.array([frame.props["_SSIMULACRA2"] for frame in metric_calculate(reference, encode).frames()])
+
+            quantisers[n] = metric_summarise(scores)
+
+        for i in range(len(quantisers) - 1):
+            if not quantisers[i] >= quantisers[i+1]:
+                # In this case a higher crf produces a higher quantiser than that of a lower crf.
+                print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / Potential unreliable polynomial model / Encode with --crf {testing_crfs[i]:.2f} receives quantiser {quantisers[i]:.3f} while encode with --crf {testing_crfs[i+1]:.2f} receives quantiser {quantisers[i+1]:.3f}")
+                printing = True
+
+        model = Polynomial.fit(testing_crfs, quantisers, np.min([3, len(testing_crfs) - 1]))
+
+        final_crf = None
+        # This is in fact iterating metric_iterate_crfs, which is constructed above below the Ding comment.
+        for n in range(len(testing_crfs) + 1):
+            value = model(metric_iterate_crfs[n])
+            if value > metric_target:
+                if n == len(testing_crfs):
+                    # This means even at final_max_crf, we are still higher than the target quality.
+                    # We will just use final_max_crf as final_crf. It shouldn't matter.
+                    final_crf = metric_iterate_crfs[n]
+                    break
+                else:
+                    # This means the point where predicted quality meets the target is in higher crf ranges.
+                    # We will skip this range and continue.
+                    continue
+            else:
+                # Because we know from previous iteration that at metric_iterate_crfs[n-1], the predicted quality is higher than the target,
+                # and now at metric_iterate_crfs[n], the prediceted quality is lower than the target,
+                # this means the point where predicted quality meets the target is within this range between metric_iterate_crfs[n] and metric_iterate_crfs[n-1].
+                # The only exception is when n == 0, while will be dealt with later.
+                last_value = value
+                for crf in np.arange(metric_iterate_crfs[n] - 0.25, metric_iterate_crfs[n-1] - 0.24, -0.25):
+                    value = model(crf)
+                    if value > metric_target:
+                        # We've found the smaller --crf whose predicted quality is higher than the target.
+                        final_crf = crf
+                        break
+
+                    if last_value is not None:
+                        if value < last_value:
+                            # This means the predicted quality actually drops as `--crf` goes down, which indicates a problem in the polynomial model.
+                            # That's said the model can still be used. Either we will never go up again and reach the target quality, in which case the very last else clause will trigger, or we will reach the point when it goes back up and we may result in a lower `--crf` than what's optimal, but that's not really a problem per se.
+                            print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / Unreliable polynomial model / This may result in lower `--crf` than what's optimal, but otherwise it will still reach the target quality")
+                            printing = True
+                            last_value = None
+                        else:
+                            last_value = value
+                else:
+                    # The last item in the iteration is metric_iterate_crfs[n-1], and from outer loop we know that at that crf the predicted quality is higher than the target.
+                    # The only case that this else clause will be reached is at n == 0, that even at metric_iterate_crfs[-1], or final_min_crf, the predicted quality is still below the target the target.
+                    print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / Potential low quality / At `final_min_crf` {metric_iterate_crfs[n-1]:.2f}, the predicted quality is {value:.3f}, which is lower than metric_target at {metric_target:.3f}")
+                    printing = True
+                    final_crf = metric_iterate_crfs[n-1]
+                
+                if final_crf is not None:
+                    break
+        else:
+            assert False, "This indicates a bug in the code. Please report this to the repository including this error message in full."
+
+        if printing or metric_verbose or final_crf < metric_min_reporting_crf or final_crf > metric_max_reporting_crf:
+            print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / OK / Final crf: {final_crf:.2f}")
+
+        zones_f.write(f"{scene["start_frame"]} {scene["end_frame"]} svt-av1 {"reset" if final_parameters_reset else ""} --crf {final_crf:.2f} {final_dynamic_parameters(final_crf)} {final_parameters}\n")
