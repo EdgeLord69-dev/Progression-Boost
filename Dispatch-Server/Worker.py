@@ -40,7 +40,6 @@ port = 18861
 import rpyc
 import time
 
-port = 18861
 c = rpyc.connect("localhost", port)
 tid = c.root.register()
 while not c.root.request_release(tid):
