@@ -1,18 +1,3 @@
-<table><tr>
-<th align="center"><hr /><h3>Table of Contents</h3><hr /></th>
-</tr><tr>
-<td>
-
-– [Progression Boost](#regression-boost)  
-– [Dispatch Server](#dispatch-server)  
-
-</td>
-</tr><tr>
-<th align="center"><hr /></th>
-</tr><tr>
-<td><img width="2000" height="1px" /></td>
-</tr></table>
-
 ## Progression Boost
 
 ### Introduction
