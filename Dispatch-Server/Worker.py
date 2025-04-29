@@ -4,18 +4,6 @@
 # Copyright (c) Akatsumekusa and contributors
 
 # ---------------------------------------------------------------------
-# Set the port used by the dispatch server. You can set it to any port
-# of your preference, as long as you set it the same in `Server.py`,
-# `Server-Shutdown.py` and your filtering vpy script.
-port = 18861
-# ---------------------------------------------------------------------
-# Copy every line in this file to your filtering vpy script. The
-# optimal place to paste this is after you've imported vapoursynth and
-# all the vsfunc's, and after you've loaded the source file, but before
-# any filtering has been performed.
-# ---------------------------------------------------------------------
-
-# ---------------------------------------------------------------------
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
 # "Software"), to deal in the Software without restriction, including
@@ -35,6 +23,18 @@ port = 18861
 # ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+# ---------------------------------------------------------------------
+
+# ---------------------------------------------------------------------
+# Set the port used by the dispatch server. You can set it to any port
+# of your preference, as long as you set it the same in `Server.py`,
+# `Server-Shutdown.py` and your filtering vpy script.
+port = 18861
+# ---------------------------------------------------------------------
+# Copy every line in this file to your filtering vpy script. The
+# optimal place to paste this is after you've imported vapoursynth and
+# all the vsfunc's, and after you've loaded the source file, but before
+# any filtering has been performed.
 # ---------------------------------------------------------------------
 
 import rpyc
