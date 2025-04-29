@@ -130,7 +130,7 @@ class QueueService(Service):
         if self.queue[0] == tid:
             self.locked_reset_first_in_queue()
         else:
-            if self.self.last_contact_first_in_queue < time_ns() - 10000000000:
+            if self.last_contact_first_in_queue < time_ns() - 10000000000:
                 self.queue.pop(0)
                 self.locked_reset_first_in_queue()
 
