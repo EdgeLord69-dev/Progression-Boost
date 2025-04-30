@@ -2,14 +2,24 @@
 
 ### Introduction
 
-Thanks to Ironclad's grav1an, Miss Moonlight's Lav1e, and Trix's autoboost for inspiring Progression Boost.  
+Thanks to Ironclad and their grav1an, Miss Moonlight and their Lav1e, and Trix and their autoboost that makes this script possible.
 
 Progression boost is a boosting script for maintaining a consistent quality throughout the whole encode. It works in the same way as Ironclad's grav1an using polynomial regression, and can be easily configured to target different quality levels and more.  
 
 ### Usage
 
-1. Install the dependencies specified in [`requirements.txt`](Progression-Boost/requirements.txt) using pip.
-2. Download [`Progression-Boost.py`](Progression-Boost/Progression-Boost.py). Open the file in a text editor and follow the guide at the very top to adjust the config.  
+Progression Boost is very customisable. For this reason, we offers multiple presets with different quality targets. You can choose one that's closer to what you want to achieve with your encode, and then modify the config from that.  
+
+| Preset | Quality Target Explained |
+| :--: | :-- |
+| [Butteraugli-3Norm-90th-Percentile](Progression-Boost/Preset-Butteraugli-3Norm-90th-Percentile/Progression-Boost.py) | Targeting very high quality, focusing on getting even the worst frame good. |
+| [SSIMU2-20th-Percentile](Progression-Boost/Progression-Boost.py) | Targeting high to very high quality, focusing on getting the bad frames good. |
+| [SSIMU2-Harmonic-Mean](Progression-Boost/Preset-SSIMU2-Harmonic-Mean/Progression-Boost.py) | Targeting from low to high quality, focusing on quality consistency. |
+| [Butteraugli-3Norm-Root-Mean-Cube](Progression-Boost/Preset-Butteraugli-3Norm-Root-Mean-Cube/Progression-Boost.py) | Targeting medium-high to high quality, focusing on quality consistency. |
+
+After you've downloaded a preset, open the file in a text editor and follow the guide at the very top to adjust the config. The guide should be able to lead you through all the options for Progression Boost.
+
+Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip.
 
 ### Note
 
