@@ -8,7 +8,7 @@ Progression boost is a boosting script for maintaining a consistent quality thro
 
 ### Usage
 
-Progression Boost is very customisable. For this reason, we offers multiple presets with different quality targets. You can choose one that's closer to what you want to achieve with your encode, and then modify the config from that.  
+Progression Boost is very customisable. For this reason, we offer multiple presets with different quality targets. You can choose one that's closer to what you want to achieve with your encode, and then modify the config from that.  
 
 | Preset | Quality Target Explained |
 | :-- | :-- |
