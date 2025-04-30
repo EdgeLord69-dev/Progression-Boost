@@ -11,7 +11,7 @@ Progression boost is a boosting script for maintaining a consistent quality thro
 Progression Boost is very customisable. For this reason, we offers multiple presets with different quality targets. You can choose one that's closer to what you want to achieve with your encode, and then modify the config from that.  
 
 | Preset | Quality Target Explained |
-| :--: | :-- |
+| :-- | :-- |
 | [Butteraugli-3Norm-90th-Percentile](Progression-Boost/Preset-Butteraugli-3Norm-90th-Percentile/Progression-Boost.py) | Targeting very high quality, focusing on getting even the worst frame good. |
 | [SSIMU2-20th-Percentile](Progression-Boost/Progression-Boost.py) | Targeting high to very high quality, focusing on getting the bad frames good. |
 | [SSIMU2-Harmonic-Mean](Progression-Boost/Preset-SSIMU2-Harmonic-Mean/Progression-Boost.py) | Targeting from low to high quality, focusing on quality consistency. |
