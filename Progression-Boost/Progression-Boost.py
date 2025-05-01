@@ -84,7 +84,7 @@ metric_verbose = args.verbose
 # Also, if you're wondering why the `--crf` values go so high to 40 and
 # 50, the answer is that even at 40 or 50, some, especially still,
 # scenes can still achieve amazing results with 90+ SSIMU2 mean.
-testing_crfs = sorted([10.00, 17.00, 27.00, 41.00])
+# testing_crfs = sorted([10.00, 17.00, 27.00, 41.00])
 
 # Boosting using Butteraugli 3Norm metric is different. During our
 # testing using SVT-AV1-PSY v2.3.0-Q and v3.0.2, we observed a linear
@@ -96,7 +96,7 @@ testing_crfs = sorted([10.00, 17.00, 27.00, 41.00])
 # targeting lower quality targets. Comment the lines above and
 # uncomment the lines below if you want to make a linear model for
 # Butteraugli 3Norm targeting lower `--crf`s.
-# testing_crfs = sorted([12.00, 21.00])
+testing_crfs = sorted([12.00, 21.00])
 
 # Please keep this list sorted and only enter `--crf` values that are
 # multiples of 0.25. Progression Boost will break if this requirement
@@ -126,13 +126,13 @@ testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 6 --fast-deco
 #
 # Specify a `--crf` value that's not too far away from the lowest and
 # the highest `--crf` value specified in `testing_crfs` to be safe.
-final_min_crf = 6.00
-final_max_crf = 50.00
+# final_min_crf = 6.00
+# final_max_crf = 50.00
 
 # If you're using the default `testing_crfs` for Butteraugli 3Norm,
 # comment the line above for SSIMU2 and uncomment the lines below.
-# final_min_crf = 6.00
-# final_max_crf = 32.00
+final_min_crf = 6.00
+final_max_crf = 32.00
 # ---------------------------------------------------------------------
 # Do you want a real constant quality, or do you just want a small
 # boost, not wishing to throw a lot of bitrates on the most demanding
@@ -282,14 +282,14 @@ def metric_process(clip: vs.VideoNode) -> vs.VideoNode:
 # What metric do you want to use? Are you hipping, or are you zipping?
 # 
 # To use SSIMU2 via vship, uncomment the lines below. 
-metric_calculate = core.vship.SSIMULACRA2
-metric_metric = lambda frame: frame.props["_SSIMULACRA2"]
-metric_better_metric = np.greater
+# metric_calculate = core.vship.SSIMULACRA2
+# metric_metric = lambda frame: frame.props["_SSIMULACRA2"]
+# metric_better_metric = np.greater
 
 # To use Butteraugli 3Norm via vship, uncomment the lines below.
-# metric_calculate = core.vship.BUTTERAUGLI
-# metric_metric = lambda frame: frame.props["_BUTTERAUGLI_3Norm"]
-# metric_better_metric = np.less
+metric_calculate = core.vship.BUTTERAUGLI
+metric_metric = lambda frame: frame.props["_BUTTERAUGLI_3Norm"]
+metric_better_metric = np.less
 
 # To use Butteraugli INFNorm via vship, uncomment the lines below.
 # metric_calculate = core.vship.BUTTERAUGLI
@@ -325,16 +325,16 @@ metric_better_metric = np.greater
 #
 # Specify the `metric_percentile` you want to observe below depending on
 # your desired quality for the encode.
-metric_percentile = 20
-def metric_summarise(scores: list[float]) -> float:
-    return np.percentile(scores, metric_percentile, method="median_unbiased")
+# metric_percentile = 20
+# def metric_summarise(scores: list[float]) -> float:
+#     return np.percentile(scores, metric_percentile, method="median_unbiased")
 
 # The percentile method is also tested on Butteraugli 3Norm score, use
 # 90th percentile instead of 10th, and 80th percentile instead of 20th,
 # and you are good to go.
-# metric_percentile = 90
-# def metric_summarise(scores: list[float]) -> float:
-#     return np.percentile(scores, metric_percentile, method="median_unbiased")
+metric_percentile = 90
+def metric_summarise(scores: list[float]) -> float:
+    return np.percentile(scores, metric_percentile, method="median_unbiased")
 
 # The second method is to calculate a mean value for the whole scene.
 # For SSIMU2 score, harmonic mean is studied by Miss Moonlight to have
@@ -370,8 +370,8 @@ def metric_summarise(scores: list[float]) -> float:
 # model.
 # For SSIMU2 metric, it's preferred to use at least a cubic polynomial
 # regression.
-def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
-    return Polynomial.fit(crfs, quantisers, np.min([3, len(crfs) - 1]))
+# def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
+#     return Polynomial.fit(crfs, quantisers, np.min([3, len(crfs) - 1]))
 
 # As explained in the `testing_crfs` section, there appears to be a
 # linear relation between `--crf` and Butteraugli 3Norm scores in
@@ -383,14 +383,14 @@ def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[
 # than underboost. If you're using the default `testing_crfs` for
 # Butteraugli 3Norm, comment the line above for SSIMU2 and uncomment the
 # lines below.
-# def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
-#     model = Polynomial.fit(crfs, quantisers, 1)
-#     def predict(crf):
-#         if crf >= 12:
-#             return model(crf)
-#         else:
-#             return model(((crf / 12) ** 1.2) * 12)
-#     return predict
+def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
+    model = Polynomial.fit(crfs, quantisers, 1)
+    def predict(crf):
+        if crf >= 12:
+            return model(crf)
+        else:
+            return model(((crf / 12) ** 1.2) * 12)
+    return predict
 
 # If you want to use a different method, you can implement it here.
 #
@@ -410,7 +410,7 @@ def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[
 # default, the quality we get from test encodes will be lower than that
 # of the final encode using slower presets. You should account for this
 # when setting the number.
-metric_target = 86.500
+metric_target = 0.480
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 
