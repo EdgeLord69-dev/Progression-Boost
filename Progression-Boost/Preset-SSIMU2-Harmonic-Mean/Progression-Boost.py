@@ -134,6 +134,26 @@ final_max_crf = 55.00
 # final_min_crf = 6.00
 # final_max_crf = 32.00
 # ---------------------------------------------------------------------
+# Do you want a real constant quality, or do you just want a small
+# boost, not wishing to throw a lot of bitrates on the most demanding
+# scenes? For targeting constant quality, you don't need to modify
+# anything here.
+def final_dynamic_crf(crf: float) -> float:
+    return crf
+
+# If you want to dampen the most boosted scenes, you can try to
+# uncomment the lines below or write your own method.
+#
+# This function receives `--crf` in multiples of 0.05. The new `--crf`
+# it returns can be in any precision.
+# Even if you change things here, do not remove `final_min_crf` and 
+# `final_max_crf` from last section. They are necessary for Progression
+# Boost to work, even if you apply additional limits here.
+# def final_dynamic_crf(crf: float) -> float:
+#     if crf < 10:
+#         crf = (crf / 10) ** 0.7 * 10
+#     return crf
+# ---------------------------------------------------------------------
 # Do you want to change other parameters than `--crf` dynamically
 # for the output zones file (and the eventual final encode)? This
 # function receives a `--crf` value and should return a string of
@@ -481,6 +501,7 @@ with zones_file.open("w") as zones_f:
                                                cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
 
     for scene in scenes:
+        print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / Calculating", end="\r")
         printing = False
 
         quantisers = np.empty((len(testing_crfs),), dtype=float)
@@ -523,7 +544,7 @@ with zones_file.open("w") as zones_f:
                 # this means the point where predicted quality meets the target is within this range between metric_iterate_crfs[n] and metric_iterate_crfs[n-1].
                 # The only exception is when n == 0, while will be dealt with later.
                 last_value = value
-                for crf in np.arange(metric_iterate_crfs[n] - 0.25, metric_iterate_crfs[n-1] - 0.24, -0.25):
+                for crf in np.arange(metric_iterate_crfs[n] - 0.05, metric_iterate_crfs[n-1] - 0.24, -0.05):
                     value = model(crf)
                     if metric_better_metric(value, metric_target):
                         # We've found the smaller --crf whose predicted quality is higher than the target.
@@ -551,7 +572,12 @@ with zones_file.open("w") as zones_f:
         else:
             assert False, "This indicates a bug in the code. Please report this to the repository including this error message in full."
 
+        final_crf = final_dynamic_crf(final_crf)
+        # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
+        final_crf = round(final_crf / 0.25) * 0.25
+
         if printing or metric_verbose or final_crf < metric_min_reporting_crf or final_crf > metric_max_reporting_crf:
             print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / OK / Final crf: {final_crf:.2f}")
 
+        # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
         zones_f.write(f"{scene["start_frame"]} {scene["end_frame"]} svt-av1 {"reset" if final_parameters_reset else ""} --crf {final_crf:.2f} {final_dynamic_parameters(final_crf)} {final_parameters}\n")
