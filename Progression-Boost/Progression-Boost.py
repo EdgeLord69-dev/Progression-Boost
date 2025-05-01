@@ -84,7 +84,7 @@ metric_verbose = args.verbose
 # Also, if you're wondering why the `--crf` values go so high to 40 and
 # 50, the answer is that even at 40 or 50, some, especially still,
 # scenes can still achieve amazing results with 90+ SSIMU2 mean.
-testing_crfs = sorted([11.00, 18.00, 30.00, 45.00])
+testing_crfs = np.sort([11.00, 18.00, 30.00, 45.00])
 
 # Boosting using Butteraugli 3Norm metric is different. During our
 # testing using SVT-AV1-PSY v2.3.0-Q and v3.0.2, we observed a linear
@@ -96,7 +96,7 @@ testing_crfs = sorted([11.00, 18.00, 30.00, 45.00])
 # targeting lower quality targets. Comment the lines above and
 # uncomment the lines below if you want to make a linear model for
 # Butteraugli 3Norm targeting lower `--crf`s.
-# testing_crfs = sorted([12.00, 21.00])
+# testing_crfs = np.sort([12.00, 21.00])
 
 # Please keep this list sorted and only enter `--crf` values that are
 # multiples of 0.25. Progression Boost will break if this requirement
@@ -326,14 +326,14 @@ metric_better_metric = np.greater
 # Specify the `metric_percentile` you want to observe below depending on
 # your desired quality for the encode.
 # metric_percentile = 20
-# def metric_summarise(scores: list[float]) -> float:
+# def metric_summarise(scores: np.ndarray[float]) -> float:
 #     return np.percentile(scores, metric_percentile, method="median_unbiased")
 
 # The percentile method is also tested on Butteraugli 3Norm score, use
 # 90th percentile instead of 10th, and 80th percentile instead of 20th,
 # and you are good to go.
 # metric_percentile = 90
-# def metric_summarise(scores: list[float]) -> float:
+# def metric_summarise(scores: np.ndarray[float]) -> float:
 #     return np.percentile(scores, metric_percentile, method="median_unbiased")
 
 # The second method is to calculate a mean value for the whole scene.
@@ -347,7 +347,7 @@ metric_better_metric = np.greater
 #
 # To use the harmonic mean method, comment the lines above for the
 # percentile method, and uncomment the two lines below.
-def metric_summarise(scores: list[float]) -> float:
+def metric_summarise(scores: np.ndarray[float]) -> float:
     return scores.shape[0] / np.sum(1 / scores)
 
 # For Butteraugli 3Norm score, root mean cube is suggested by Miss
@@ -355,23 +355,23 @@ def metric_summarise(scores: list[float]) -> float:
 #
 # To use the root mean cube method, comment the lines above for the
 # percentile method, and uncomment the two lines below.
-# def metric_summarise(scores: list[float]) -> float:
-#     return np.mean(np.array(scores) ** 3) ** (1 / 3)
+# def metric_summarise(scores: np.ndarray[float]) -> float:
+#     return np.mean(scores ** 3) ** (1 / 3)
 
 # If you want to use a different method than above to summarise the
 # data, implement your own method here.
 # 
 # This function is called independently for every scene for every test
 # encode.
-# def metric_summarise(scores: list[float]) -> float:
+# def metric_summarise(scores: np.ndarray[float]) -> float:
 #     pass
 # ---------------------------------------------------------------------
 # By default, Progression Boost fit the metric data to a polynomial
 # model.
 # For SSIMU2 metric, it's preferred to use at least a cubic polynomial
 # regression.
-def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
-    return Polynomial.fit(crfs, quantisers, np.min([3, len(crfs) - 1]))
+def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
+    return Polynomial.fit(crfs, quantisers, np.min([3, crfs.shape[0] - 1]))
 
 # As explained in the `testing_crfs` section, there appears to be a
 # linear relation between `--crf` and Butteraugli 3Norm scores in
@@ -383,7 +383,7 @@ def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[
 # than underboost. If you're using the default `testing_crfs` for
 # Butteraugli 3Norm, comment the line above for SSIMU2 and uncomment the
 # lines below.
-# def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
+# def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
 #     model = Polynomial.fit(crfs, quantisers, 1)
 #     def predict(crf):
 #         if crf >= 12:
@@ -397,7 +397,7 @@ def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[
 # This function receives quantisers corresponding to each test encodes
 # specified previously in `testing_crfs`, which is provided in the
 # first argument `crfs`.
-# def metric_model(crfs: list[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
+# def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
 #     pass
 # ---------------------------------------------------------------------
 # After calculating the percentile, or harmonic mean, or other
