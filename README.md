@@ -25,7 +25,7 @@ Also, remember to install the dependencies for Progression Boost at [`requiremen
 
 * Progression Boost will encode the video multiple times until it can build a polynomial model. If you prefer a faster option that only encodes the video once and boost using a „magic number“, try Miss Moonlight's Lav1e or Trix's autoboost.  
 
-## Dispatch-Server
+## Dispatch Server
 
 ### Introduction
 

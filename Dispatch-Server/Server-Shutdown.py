@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Dispatch-Server
+# Dispatch Server
 # Copyright (c) Akatsumekusa and contributors
 
 # ---------------------------------------------------------------------
