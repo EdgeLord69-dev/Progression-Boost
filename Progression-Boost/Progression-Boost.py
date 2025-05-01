@@ -150,8 +150,8 @@ def final_dynamic_crf(crf: float) -> float:
 # `final_max_crf` from last section. They are necessary for Progression
 # Boost to work, even if you apply additional limits here.
 # def final_dynamic_crf(crf: float) -> float:
-#     if crf < 10:
-#         crf = (crf / 10) ** 0.7 * 10
+#     if crf < testing_crfs[0]:
+#         crf = (crf / testing_crfs[0]) ** 0.7 * testing_crfs[0]
 #     return crf
 # ---------------------------------------------------------------------
 # Do you want to change other parameters than `--crf` dynamically
@@ -483,8 +483,7 @@ for n, crf in enumerate(testing_crfs):
 # Metric
 # Ding
 metric_iterate_crfs = np.append(testing_crfs, [final_max_crf, final_min_crf])
-metric_min_reporting_crf = testing_crfs[0]
-metric_max_reporting_crf = np.mean([testing_crfs[1], final_max_crf, final_max_crf, final_max_crf])
+metric_reporting_crf = testing_crfs[0]
 
 metric_frame_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
 metric_frame_rjust = lambda frame: str.rjust(str(frame), metric_frame_rjust_digits.astype(int))
@@ -576,7 +575,7 @@ with zones_file.open("w") as zones_f:
         # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
         final_crf = round(final_crf / 0.25) * 0.25
 
-        if printing or metric_verbose or final_crf < metric_min_reporting_crf or final_crf > metric_max_reporting_crf:
+        if printing or metric_verbose or final_crf < metric_reporting_crf:
             print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / OK / Final crf: {final_crf:.2f}")
 
         # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
