@@ -516,7 +516,7 @@ with zones_file.open("w") as zones_f:
             quantisers[n] = metric_summarise(scores)
 
         for i in range(len(quantisers) - 1):
-            if not (metric_better_metric(quantisers[i], quantisers[i+1]) or np.equal(quantisers[i], quantisers[i+1])):
+            if metric_verbose and (not (metric_better_metric(quantisers[i], quantisers[i+1]) or np.equal(quantisers[i], quantisers[i+1]))):
                 # In this case a higher crf produces a higher quantiser than that of a lower crf.
                 print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / Potential unreliable polynomial model / Encode with --crf {testing_crfs[i]:.2f} receives quantiser {quantisers[i]:.3f} while encode with --crf {testing_crfs[i+1]:.2f} receives quantiser {quantisers[i+1]:.3f}")
                 printing = True
