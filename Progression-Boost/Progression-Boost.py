@@ -482,7 +482,7 @@ for n, crf in enumerate(testing_crfs):
 
 # Metric
 # Ding
-metric_iterate_crfs = testing_crfs.copy() + [final_max_crf, final_min_crf]
+metric_iterate_crfs = np.append(testing_crfs, [final_max_crf, final_min_crf])
 metric_min_reporting_crf = testing_crfs[0]
 metric_max_reporting_crf = np.mean([testing_crfs[1], final_max_crf, final_max_crf, final_max_crf])
 
