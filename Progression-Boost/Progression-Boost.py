@@ -544,7 +544,7 @@ with zones_file.open("w") as zones_f:
                 # this means the point where predicted quality meets the target is within this range between metric_iterate_crfs[n] and metric_iterate_crfs[n-1].
                 # The only exception is when n == 0, while will be dealt with later.
                 last_value = value
-                for crf in np.arange(metric_iterate_crfs[n] - 0.05, metric_iterate_crfs[n-1] - 0.24, -0.05):
+                for crf in np.arange(metric_iterate_crfs[n] - 0.05, metric_iterate_crfs[n-1] - 0.025, -0.05):
                     value = model(crf)
                     if metric_better_metric(value, metric_target):
                         # We've found the smaller --crf whose predicted quality is higher than the target.
