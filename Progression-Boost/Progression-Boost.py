@@ -29,7 +29,8 @@ from vapoursynth import core
 parser = argparse.ArgumentParser(prog="Progression Boost", description="Boost encoding parameters to maintain a consistent quality throughout the whole encoding", epilog="For more configs, open `Progression-Boost.py` in a text editor and follow the guide at the very top")
 parser.add_argument("-i", "--input", type=Path, required=True, help="Source video file")
 parser.add_argument("--encode-input", type=Path, help="Source file for test encodes. Supports both video file and vpy file (Default: same as `--input`). This file is only used to perform test encodes, while scene detection will be performed using the video file specified in `--input`, and filtering before metric calculation can be set in the `Progression-Boost.py` file itself")
-parser.add_argument("-o", "--output-zones", type=Path, required=True, help="Output zones file for encoding")
+parser.add_argument("-o", "--output-zones", type=Path, help="Output zones file for encoding")
+parser.add_argument("--output-scenes", type=Path, help="Output scenes file for encoding")
 parser.add_argument("--temp", type=Path, help="Temporary folder for Progression Boost (Default: output zones file with file extension replaced by „.boost.tmp“)")
 parser.add_argument("-r", "--resume", action="store_true", help="Resume from the temporary folder. By enabling this option, Progression Boost will reuse finished or unfinished testing encodes. This should be disabled should the parameters for test encode be changed")
 parser.add_argument("--verbose", action="store_true", help="Progression Boost by default only reports scenes that have received big boost, or scenes that have built unexpected polynomial model. By enabling this option, all scenes will be reported")
@@ -39,9 +40,16 @@ testing_input_file = args.encode_input
 if testing_input_file is None:
     testing_input_file = input_file
 zones_file = args.output_zones
+scenes_file = args.output_scenes
+if not zones_file and not scenes_file:
+    print("Progression Boost: error: at least one of the following arguments is required: -o/--output-zones, --output-scenes")
+    raise SystemExit(2)
 temp_dir = args.temp
 if not temp_dir:
-    temp_dir = zones_file.with_suffix(".boost.tmp")
+    if zones_file:
+        temp_dir = zones_file.with_suffix(".boost.tmp")
+    else:
+        temp_dir = scenes_file.with_suffix(".boost.tmp")
 temp_dir.mkdir(parents=True, exist_ok=True)
 testing_resume = args.resume
 metric_verbose = args.verbose
@@ -190,11 +198,13 @@ final_parameters_reset = False
 # (or any other boosting scripts) will be much less accurate as a
 # result, since scenes with such optimisation can contain frames from
 # nearby scenes, which said frames will then certainly be overboosted
-# or underboosted. 
-scene_detection_parameters = "--sc-method fast --extra-split 240 --min-scene-len 12 --chunk-method lsmash"
+# or underboosted.
+scene_detection_extra_split = 240
+scene_detection_min_scene_len = 12
+scene_detection_parameters = f"--sc-method fast --chunk-method lsmash"
 # Below are the parameters that should always be used. Regular users
 # would not need to modify these.
-scene_detection_parameters += " --sc-only"
+scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_split} --min-scene-len {scene_detection_min_scene_len}"
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Specify the av1an parameters for the test encodes. You need to
@@ -524,6 +534,7 @@ metric_target = 85.000
 # ---------------------------------------------------------------------
 
 
+from copy import deepcopy
 import json
 import subprocess
 
@@ -567,90 +578,114 @@ for n, crf in enumerate(testing_crfs):
 
 # Metric
 with scene_detection_scenes_file.open("r") as scenes_f:
-    scenes = json.load(scenes_f)["scenes"]
+    scene_detection_scenes = json.load(scenes_f)
+    scenes = scene_detection_scenes["scenes"]
 
-with zones_file.open("w") as zones_f:
-    if not testing_resume:
-        for n in range(len(testing_crfs)):
-            temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").unlink(missing_ok=True)
-    metric_encodes = [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
-                                               cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
+if not testing_resume:
+    for n in range(len(testing_crfs)):
+        temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").unlink(missing_ok=True)
+metric_encodes = [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
+                                           cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
 
-    # Ding
-    metric_iterate_crfs = np.append(testing_crfs, [final_max_crf, final_min_crf])
-    metric_reporting_crf = testing_crfs[0]
+if zones_file:
+    zones_f = zones_file.open("w")
 
-    metric_scene_rjust_digits = np.floor(np.log10(len(scenes))) + 1
-    metric_scene_rjust = lambda scene: str(scene).rjust(metric_scene_rjust_digits.astype(int), "0")
-    metric_frame_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
-    metric_frame_rjust = lambda frame: str(frame).rjust(metric_frame_rjust_digits.astype(int))
-    metric_scene_frame_print = lambda scene, start_frame, end_frame: f"Scene {metric_scene_rjust(scene)} Frame [{metric_frame_rjust(start_frame)}:{metric_frame_rjust(end_frame)}]"
+if scenes_file:
+    metric_scenes = deepcopy(scene_detection_scenes)
 
-    for i, scene in enumerate(scenes):
-        print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Calculating", end="\r")
-        printing = False
+# Ding
+metric_iterate_crfs = np.append(testing_crfs, [final_max_crf, final_min_crf])
+metric_reporting_crf = testing_crfs[0]
 
-        quantisers = np.empty((len(testing_crfs),), dtype=float)
+metric_scene_rjust_digits = np.floor(np.log10(len(scenes))) + 1
+metric_scene_rjust = lambda scene: str(scene).rjust(metric_scene_rjust_digits.astype(int), "0")
+metric_frame_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
+metric_frame_rjust = lambda frame: str(frame).rjust(metric_frame_rjust_digits.astype(int))
+metric_scene_frame_print = lambda scene, start_frame, end_frame: f"Scene {metric_scene_rjust(scene)} Frame [{metric_frame_rjust(start_frame)}:{metric_frame_rjust(end_frame)}]"
 
-        reference = metric_reference[scene["start_frame"]:scene["end_frame"]]
-        reference = metric_process(reference)
-        for n, crf in enumerate(testing_crfs):
-            encode = metric_encodes[n][scene["start_frame"]:scene["end_frame"]]
-            encode = metric_process(encode)
+for i, scene in enumerate(scenes):
+    print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Calculating", end="\r")
+    printing = False
 
-            scores = np.array([metric_metric(frame) for frame in metric_calculate(reference, encode).frames()])
+    quantisers = np.empty((len(testing_crfs),), dtype=float)
 
-            quantisers[n] = metric_summarise(scores)
+    reference = metric_reference[scene["start_frame"]:scene["end_frame"]]
+    reference = metric_process(reference)
+    for n, crf in enumerate(testing_crfs):
+        encode = metric_encodes[n][scene["start_frame"]:scene["end_frame"]]
+        encode = metric_process(encode)
 
-        try:
-            model = metric_model(testing_crfs, quantisers)
-        except UnreliableModelError as e:
-            if not np.all(metric_better_metric(quantisers, metric_target)):
-                print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Unreliable model / {str(e)}")
-                printing = True
-            model = e.model
+        scores = np.array([metric_metric(frame) for frame in metric_calculate(reference, encode).frames()])
 
-        final_crf = None
-        # This is in fact iterating metric_iterate_crfs, which is constructed above below the Ding comment.
-        for n in range(len(testing_crfs) + 1):
-            if metric_better_metric(model(metric_iterate_crfs[n]), metric_target):
-                if n == len(testing_crfs):
-                    # This means even at final_max_crf, we are still higher than the target quality.
-                    # We will just use final_max_crf as final_crf. It shouldn't matter.
-                    final_crf = metric_iterate_crfs[n]
-                    break
-                else:
-                    # This means the point where predicted quality meets the target is in higher crf ranges.
-                    # We will skip this range and continue.
-                    continue
+        quantisers[n] = metric_summarise(scores)
+
+    try:
+        model = metric_model(testing_crfs, quantisers)
+    except UnreliableModelError as e:
+        if not np.all(metric_better_metric(quantisers, metric_target)):
+            print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Unreliable model / {str(e)}")
+            printing = True
+        model = e.model
+
+    final_crf = None
+    # This is in fact iterating metric_iterate_crfs, which is constructed above below the Ding comment.
+    for n in range(len(testing_crfs) + 1):
+        if metric_better_metric(model(metric_iterate_crfs[n]), metric_target):
+            if n == len(testing_crfs):
+                # This means even at final_max_crf, we are still higher than the target quality.
+                # We will just use final_max_crf as final_crf. It shouldn't matter.
+                final_crf = metric_iterate_crfs[n]
+                break
             else:
-                # Because we know from previous iteration that at metric_iterate_crfs[n-1], the predicted quality is higher than the target,
-                # and now at metric_iterate_crfs[n], the prediceted quality is lower than the target,
-                # this means the point where predicted quality meets the target is within this range between metric_iterate_crfs[n] and metric_iterate_crfs[n-1].
-                # The only exception is when n == 0, while will be dealt with later.
-                for crf in np.arange(metric_iterate_crfs[n] - 0.05, metric_iterate_crfs[n-1] - 0.005, -0.05):
-                    if metric_better_metric((value := model(crf - 0.005)), metric_target): # Also numeric instability stuff
-                        # We've found the biggest --crf whose predicted quality is higher than the target.
-                        final_crf = crf
-                        break
-                else:
-                    # The last item in the iteration is metric_iterate_crfs[n-1], and from outer loop we know that at that crf the predicted quality is higher than the target.
-                    # The only case that this else clause will be reached is at n == 0, that even at metric_iterate_crfs[-1], or final_min_crf, the predicted quality is still below the target the target.
-                    print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Potential low quality scene / The predicted quality at `final_min_crf` is {value:.3f}, which is worse than `metric_target` at {metric_target:.3f}")
-                    printing = True
-                    final_crf = metric_iterate_crfs[n-1]
-                
-                if final_crf is not None:
-                    break
+                # This means the point where predicted quality meets the target is in higher crf ranges.
+                # We will skip this range and continue.
+                continue
         else:
-            assert False, "This indicates a bug in the code. Please report this to the repository including this error message in full."
+            # Because we know from previous iteration that at metric_iterate_crfs[n-1], the predicted quality is higher than the target,
+            # and now at metric_iterate_crfs[n], the prediceted quality is lower than the target,
+            # this means the point where predicted quality meets the target is within this range between metric_iterate_crfs[n] and metric_iterate_crfs[n-1].
+            # The only exception is when n == 0, while will be dealt with later.
+            for crf in np.arange(metric_iterate_crfs[n] - 0.05, metric_iterate_crfs[n-1] - 0.005, -0.05):
+                if metric_better_metric((value := model(crf - 0.005)), metric_target): # Also numeric instability stuff
+                    # We've found the biggest --crf whose predicted quality is higher than the target.
+                    final_crf = crf
+                    break
+            else:
+                # The last item in the iteration is metric_iterate_crfs[n-1], and from outer loop we know that at that crf the predicted quality is higher than the target.
+                # The only case that this else clause will be reached is at n == 0, that even at metric_iterate_crfs[-1], or final_min_crf, the predicted quality is still below the target the target.
+                print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Potential low quality scene / The predicted quality at `final_min_crf` is {value:.3f}, which is worse than `metric_target` at {metric_target:.3f}")
+                printing = True
+                final_crf = metric_iterate_crfs[n-1]
+            
+            if final_crf is not None:
+                break
+    else:
+        assert False, "This indicates a bug in the code. Please report this to the repository including this error message in full."
 
-        final_crf = final_dynamic_crf(final_crf)
-        # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
-        final_crf = round(final_crf / 0.25) * 0.25
+    final_crf = final_dynamic_crf(final_crf)
+    # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
+    final_crf = round(final_crf / 0.25) * 0.25
 
-        if printing or metric_verbose or final_crf < metric_reporting_crf:
-            print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / OK / Final crf: {final_crf:.2f}")
+    if printing or metric_verbose or final_crf < metric_reporting_crf:
+        print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / OK / Final crf: {final_crf:.2f}")
 
+    if zones_file:
         # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
         zones_f.write(f"{scene["start_frame"]} {scene["end_frame"]} svt-av1 {"reset" if final_parameters_reset else ""} --crf {final_crf:.2f} {final_dynamic_parameters(final_crf)} {final_parameters}\n")
+
+    if scenes_file:
+        metric_scenes["scenes"][i]["zone_overrides"] = {
+            "encoder": "svt_av1",
+            "passes": 1,
+            "video_params": ["--crf", f"{final_crf:.2f}" ] + final_dynamic_parameters(final_crf).split() + final_parameters.split(),
+            "photon_noise": None,
+            "extra_splits_len": scene_detection_extra_split,
+            "min_scene_len": scene_detection_min_scene_len
+        }
+
+if zones_file:
+    zones_f.close()
+
+if scenes_file:
+    with scenes_file.open("w") as scenes_f:
+        json.dump(metric_scenes, scenes_f)
