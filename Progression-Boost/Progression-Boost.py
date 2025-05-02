@@ -26,11 +26,11 @@ import vapoursynth as vs
 from vapoursynth import core
 
 parser = argparse.ArgumentParser(prog="Progression Boost", description="Boost encoding parameters to maintain a consistent quality throughout the whole encoding", epilog="For more configs, open `Progression-Boost.py` in a text editor and follow the guide at the very top")
-parser.add_argument("--input", type=Path, required=True, help="Source video file")
+parser.add_argument("-i", "--input", type=Path, required=True, help="Source video file")
 parser.add_argument("--encode-input", type=Path, help="Source file for test encodes. Supports both video file and vpy file (Default: same as `--input`). This file is only used to perform test encodes, while scene detection will be performed using the video file specified in `--input`, and filtering before metric calculation can be set in the `Progression-Boost.py` file itself")
-parser.add_argument("--output-zones", type=Path, required=True, help="Output zones file for encoding")
-parser.add_argument("--temp", type=Path, help="Temporary folder for Progression Boost (Default: output scenes or zones file with file extension replaced by „.boost.tmp“)")
-parser.add_argument("--resume", action="store_true", help="Resume from the temporary folder. By enabling this option, Progression Boost will reuse finished or unfinished testing encodes. This should be disabled should the parameters for test encode be changed")
+parser.add_argument("-o", "--output-zones", type=Path, required=True, help="Output zones file for encoding")
+parser.add_argument("--temp", type=Path, help="Temporary folder for Progression Boost (Default: output zones file with file extension replaced by „.boost.tmp“)")
+parser.add_argument("-r", "--resume", action="store_true", help="Resume from the temporary folder. By enabling this option, Progression Boost will reuse finished or unfinished testing encodes. This should be disabled should the parameters for test encode be changed")
 parser.add_argument("--verbose", action="store_true", help="Progression Boost by default only reports scenes that have received big boost, or scenes that have built unexpected polynomial model. By enabling this option, all scenes will be reported")
 args = parser.parse_args()
 input_file = args.input
@@ -53,7 +53,7 @@ metric_verbose = args.verbose
 # starting below.
 # 
 # To run the script, use `python Progression-Boost.py --input 01.mkv
-# --output-scenes 01.scenes.json --temp 01.boost.tmp`, or read the help
+# --output-zones 01.zones.txt --temp 01.boost.tmp`, or read the help
 # for all commandline arguments using `python Progression-Boost.py
 # --help`.
 #
