@@ -12,33 +12,42 @@
 # `100` denoting fully utilising all CPU threads on the system.
 # 
 # You should set this number to match the CPU usage for filtering, or
-# encoding, whichever one is higher. There are next to no consequence
-# to slightly underutilising or overloading your CPU. This parameter
-# doesn't need to be very precise.
+# encoding, whichever one is higher. It's not a big deal to slightly
+# underutilising or overloading your CPU. This parameter doesn't need
+# to be 100% precise.
 # 
 # As an example, if your filtering doesn't use much CPU and you are
 # using `--lp 3` on a system with 32 threads, you can set this value to
-# `4 / 32 * 100` or `3 / 32 * 100` depending on your taste.
+# `4 / 32 * 100` or `5 / 32 * 100` depending on the average complexity
+# of the show.
 # If otherwise your filtering is CPU intensive, you should observe how
 # much CPU it uses and set it accordingly. For example, if your
 # filtering uses somewhere between 6 to 8 threads and you're still
 # using `--lp 3` for encoding, set this to `7 / 32 * 100`.
+#
+# An additional reminder is that you should separate filtering and
+# encoding as much as possible, otherwise their will be a period when
+# both filtering and encoding are consuming CPU and will certainly
+# overload the system. You should not reduce `--lookahead` than default
+# if you're low on RAM. In that case, just use higher `--lp`. During
+# our testing, the Dispatch Server can deliver encoding speed just as
+# fast using higher `--lp`s compared to `--lp 2` or `--lp 3`.
 necessary_cpu = 20
 # ---------------------------------------------------------------------
 # This `required_vram` parameter denotes the maximum amount of VRAM
 # used for each worker in bytes.
 # 
-# Run VSPipe and filter to `/dev/null` and observe the amount of VRAM
-# used. You should set this slightly higher than the number you
-# observe just to be on the safe side.
+# Run VSPipe and filter to `/dev/null` or a standalone encoder and
+# observe the amount of VRAM used. You should set this slightly higher
+# than the number you observe just to be on the safe side.
 #
 # As an example, if your filtering is observed to use around 3.5 GiB of
 # VRAM, set this to 3.75 GiB or `3.75 * 1073741824` just to be on the
 # safe side.
 #
-# If you are just using the dispatch server for optimising CPU usage,
-# and you don't care about VRAM, set this to `0`.
-required_vram = 3.75 * 1073741824
+# If you are only using the dispatch server for optimising CPU usage
+# and not VRAM, set this to `0`.
+required_vram = 3 * 1073741824
 # ---------------------------------------------------------------------
 # It often takes time for filters to load and start processing frames.
 # VRAM usage will gradually ramp up during this loading time, and it
@@ -52,13 +61,12 @@ required_vram = 3.75 * 1073741824
 #
 # Run VSPipe and observe how long it takes for it to occupy full VRAM.
 # You should set this slightly higher than the amount of time you
-# observe since it may load slower when CPU is near full. If at any
-# time during the actual encoding that too much workers have been
-# released that VRAM is completly exhausted while the encoding grinds
-# to a halt, provided that you've set `required_vram` properly,
-# increase this number.
+# observe since the loading speed will be longer when CPU is near full.
+# If at any time during the actual encoding that too much workers have
+# been released that VRAM is completly exhausted, provided that you've
+# set `required_vram` properly, increase this number.
 # 
-# If VRAM is not your problem and you're just using the dispatch server
+# If VRAM is not your issue and you're only using the dispatch server
 # to optimise CPU usage, set it to something in the range of 1 to 2
 # seconds or `1 * 1000000000` to  `2 * 1000000000`.
 released_reserve_time = 10 * 1000000000

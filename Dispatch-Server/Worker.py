@@ -34,7 +34,7 @@ port = 18861
 # Copy every line in this file to your filtering vpy script. The
 # optimal place to paste this is after you've imported vapoursynth and
 # all the vsfunc's, and after you've loaded the source file, but before
-# any filtering has been performed.
+# any filtering using VRAM is created / performed.
 # ---------------------------------------------------------------------
 
 import rpyc
