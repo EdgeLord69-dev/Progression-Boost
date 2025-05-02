@@ -453,7 +453,7 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
 # uncomment the function below.
 # def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
 #     fit = Polynomial.fit(crfs, quantisers, 1)
-#     if fit.coef[1] != 0 and metric_better_metric(quantisers[0] * 1.1, quantisers[0]) == (fit.coef[1] < 0):
+#     if not np.isclose(fit.coef[1], 0, rtol=0, atol=1e-9) and metric_better_metric(quantisers[0] * 1.1, quantisers[0]) == (fit.coef[1] < 0):
 #         def predict(crf):
 #             if crf >= 12:
 #                 return fit(crf)
