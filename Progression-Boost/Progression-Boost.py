@@ -22,13 +22,15 @@ from functools import partial
 from pathlib import Path
 import numpy as np
 from numpy.polynomial.polynomial import Polynomial
+from scipy.optimize import Bounds, minimize
 import vapoursynth as vs
 from vapoursynth import core
 
 parser = argparse.ArgumentParser(prog="Progression Boost", description="Boost encoding parameters to maintain a consistent quality throughout the whole encoding", epilog="For more configs, open `Progression-Boost.py` in a text editor and follow the guide at the very top")
 parser.add_argument("-i", "--input", type=Path, required=True, help="Source video file")
 parser.add_argument("--encode-input", type=Path, help="Source file for test encodes. Supports both video file and vpy file (Default: same as `--input`). This file is only used to perform test encodes, while scene detection will be performed using the video file specified in `--input`, and filtering before metric calculation can be set in the `Progression-Boost.py` file itself")
-parser.add_argument("-o", "--output-zones", type=Path, required=True, help="Output zones file for encoding")
+parser.add_argument("-o", "--output-zones", type=Path, help="Output zones file for encoding")
+parser.add_argument("--output-scenes", type=Path, help="Output scenes file for encoding")
 parser.add_argument("--temp", type=Path, help="Temporary folder for Progression Boost (Default: output zones file with file extension replaced by „.boost.tmp“)")
 parser.add_argument("-r", "--resume", action="store_true", help="Resume from the temporary folder. By enabling this option, Progression Boost will reuse finished or unfinished testing encodes. This should be disabled should the parameters for test encode be changed")
 parser.add_argument("--verbose", action="store_true", help="Progression Boost by default only reports scenes that have received big boost, or scenes that have built unexpected polynomial model. By enabling this option, all scenes will be reported")
@@ -38,9 +40,16 @@ testing_input_file = args.encode_input
 if testing_input_file is None:
     testing_input_file = input_file
 zones_file = args.output_zones
+scenes_file = args.output_scenes
+if not zones_file and not scenes_file:
+    print("Progression Boost: error: at least one of the following arguments is required: -o/--output-zones, --output-scenes")
+    raise SystemExit(2)
 temp_dir = args.temp
 if not temp_dir:
-    temp_dir = zones_file.with_suffix(".boost.tmp")
+    if zones_file:
+        temp_dir = zones_file.with_suffix(".boost.tmp")
+    else:
+        temp_dir = scenes_file.with_suffix(".boost.tmp")
 temp_dir.mkdir(parents=True, exist_ok=True)
 testing_resume = args.resume
 metric_verbose = args.verbose
@@ -189,11 +198,13 @@ final_parameters_reset = False
 # (or any other boosting scripts) will be much less accurate as a
 # result, since scenes with such optimisation can contain frames from
 # nearby scenes, which said frames will then certainly be overboosted
-# or underboosted. 
-scene_detection_parameters = "--sc-method fast --extra-split 240 --min-scene-len 12 --chunk-method lsmash"
+# or underboosted.
+scene_detection_extra_split = 240
+scene_detection_min_scene_len = 12
+scene_detection_parameters = f"--sc-method fast --chunk-method lsmash"
 # Below are the parameters that should always be used. Regular users
 # would not need to modify these.
-scene_detection_parameters += " --sc-only"
+scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_split} --min-scene-len {scene_detection_min_scene_len}"
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Specify the av1an parameters for the test encodes. You need to
@@ -366,37 +377,135 @@ def metric_summarise(scores: np.ndarray[float]) -> float:
 # def metric_summarise(scores: np.ndarray[float]) -> float:
 #     pass
 # ---------------------------------------------------------------------
-# By default, Progression Boost fit the metric data to a polynomial
-# model.
-# For SSIMU2 metric, it's preferred to use at least a cubic polynomial
-# regression.
+# You don't need to modify anything here.
+class UnreliableModelError(Exception):
+    def __init__(self, model, message):
+        super().__init__(message)
+        self.model = model
+# ---------------------------------------------------------------------
+# For SSIMU2, by default, Progression Boost fit the metric data to a
+# constrained cubic polynomial model. If a fit could not be made under
+# constraints, an „Unreliable model“ will be reported. You don't need
+# to modify anything here unless you want to implement your own method.
 # def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
-#     return Polynomial.fit(crfs, quantisers, np.min([3, crfs.shape[0] - 1]))
+#     if crfs.shape[0] >= 4:
+#         polynomial = lambda X, coef: coef[0] * X ** 3 + coef[1] * X ** 2 + coef[2] * X + coef[3]
+#         # Mean Squared Error biased towards overboosting
+#         objective = lambda coef: np.average((error := (quantisers - polynomial(crfs, coef))) ** 2, weights=metric_better_metric(0, error) + 1.0)
+#         if metric_better_metric(quantisers[0] * 1.1, quantisers[0]):
+#             bounds = Bounds([-np.inf, -np.inf, -np.inf, -np.inf], [0, np.inf, np.inf, np.inf])
+#             constraints = [
+#                 # Second derivative 6ax + 2b <= 0 if np.greater
+#                 {"type": "ineq", "fun": lambda coef: -(6 * coef[0] * final_min_crf + 2 * coef[1])},
+#                 # b^2 - 3ac <= 0
+#                 {"type": "ineq", "fun": lambda coef: -(coef[1] ** 2 - 3 * coef[0] * coef[2])}
+#             ]
+#         else:
+#             bounds = Bounds([0, -np.inf, -np.inf, -np.inf], [np.inf, np.inf, np.inf, np.inf])
+#             constraints = [
+#                 # Second derivative 6ax + 2b >= 0 if np.less
+#                 {"type": "ineq", "fun": lambda coef: 6 * coef[0] * final_min_crf + 2 * coef[1]},
+#                 # b^2 - 3ac <= 0
+#                 {"type": "ineq", "fun": lambda coef: -(coef[1] ** 2 - 3 * coef[0] * coef[2])}
+#             ]
+#         fit = minimize(objective, [0, *np.polyfit(crfs, quantisers, 2)],
+#                        method="SLSQP", options={"ftol": 1e-6}, bounds=bounds, constraints=constraints)
+#         if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
+#             return partial(polynomial, coef=fit.x)
+#
+#     if crfs.shape[0] >= 3:
+#         polynomial = lambda X, coef: coef[0] * X ** 2 + coef[1] * X + coef[2]
+#         # Mean Squared Error biased towards overboosting
+#         objective = lambda coef: np.average((error := (quantisers - polynomial(crfs, coef))) ** 2, weights=metric_better_metric(0, error) + 1.0)
+#         if metric_better_metric(quantisers[0] * 1.1, quantisers[0]):
+#             bounds = Bounds([-np.inf, -np.inf, -np.inf], [0, np.inf, np.inf])
+#             # First derivative 2ax + b <= 0 if np.greater
+#             constraints = [{"type": "ineq", "fun": lambda coef: -(2 * coef[0] * final_min_crf + coef[1])}]
+#         else:
+#             bounds = Bounds([0, -np.inf, -np.inf], [np.inf, np.inf, np.inf])
+#             # First derivative 2ax + b >= 0 if np.less
+#             constraints = [{"type": "ineq", "fun": lambda coef: 2 * coef[0] * final_min_crf + coef[1]}]
+#         fit = minimize(objective, [0, *np.polyfit(crfs, quantisers, 1)],
+#                        method="SLSQP", options={"ftol": 1e-6}, bounds=bounds, constraints=constraints)
+#         if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
+#             return partial(polynomial, coef=fit.x)
+#
+#     if crfs.shape[0] >= 2:
+#         polynomial = lambda X, coef: coef[0] * X + coef[1]
+#         # Mean Squared Error biased towards overboosting
+#         objective = lambda coef: np.average((error := (quantisers - polynomial(crfs, coef))) ** 2, weights=metric_better_metric(0, error) + 1.0)
+#         if metric_better_metric(quantisers[0] * 1.1, quantisers[0]):
+#             bounds = Bounds([-np.inf, -np.inf], [0, np.inf])
+#         else:
+#             bounds = Bounds([0, -np.inf], [np.inf, np.inf])
+#         fit = minimize(objective, np.polyfit(crfs, quantisers, 1),
+#                        method="L-BFGS-B", options={"ftol": 1e-6}, bounds=bounds)
+#         if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
+#             if not crfs.shape[0] >= 3:
+#                 return partial(polynomial, coef=fit.x)
+#             else:
+#                 def cut(crf):
+#                     if crf <= np.average([crfs[-1], final_max_crf], weights=[3, 1]):
+#                         return polynomial(crf, fit.x)
+#                     else:
+#                         return np.nan
+#                 return cut
+#
+#     def cut(crf):
+#         for i in range(0, crfs.shape[0]):
+#             if crf <= crfs[i]:
+#                 return quantisers[i]
+#         else:
+#             return np.nan
+#     raise UnreliableModelError(cut, f"Unable to construct a polynomial model. This may result in overboosting.")
 
-# As explained in the `testing_crfs` section, there appears to be a
-# linear relation between `--crf` and Butteraugli 3Norm scores in
-# `--crf [10 ~ 30]` range. However, for `--crf`s below 10 to 12, it
-# seems like the encode quality increases faster as `--crf` decreases.
-# The following function accounts for this and deviates from the linear
-# regression at `--crf` 12 or lower. The rate used in the function is
-# very conservative, in the sense that it will more likely to overboost
-# than underboost. If you're using the default `testing_crfs` for
-# Butteraugli 3Norm, comment the line above for SSIMU2 and uncomment the
-# lines below.
+# For Butteraugli 3Norm, as explained in the `testing_crfs` section,
+# there appears to be a linear relation between `--crf` and Butteraugli
+# 3Norm scores in `--crf [10 ~ 30]` range. For `--crf`s below 10 to 12,
+# it seems like the encode quality increases faster than `--crf`
+# decreases. The following function accounts for this and deviates from
+# the linear regression at `--crf` 12 or lower. The rate used in the
+# function is very conservative, in the sense that it will almost only
+# overboost than underboost. If you're using the default `testing_crfs`
+# for Butteraugli 3Norm, comment the function above for SSIMU2 and
+# uncomment the function below.
 def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
-    model = Polynomial.fit(crfs, quantisers, 1)
-    def predict(crf):
-        if crf >= 12:
-            return model(crf)
+    polynomial = lambda X, coef: coef[0] * X + coef[1]
+    # Mean Squared Error biased towards overboosting
+    objective = lambda coef: np.average((error := (quantisers - polynomial(crfs, coef))) ** 2, weights=metric_better_metric(0, error) + 1.0)
+    if metric_better_metric(quantisers[0] * 1.1, quantisers[0]):
+        bounds = Bounds([-np.inf, -np.inf], [0, np.inf])
+    else:
+        bounds = Bounds([0, -np.inf], [np.inf, np.inf])
+    fit = minimize(objective, np.polyfit(crfs, quantisers, 1),
+                    method="L-BFGS-B", options={"ftol": 1e-6}, bounds=bounds)
+    if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
+        def predict(crf):
+            if crf >= 12:
+                return polynomial(crf, fit.x)
+            else:
+                return polynomial(((crf / 12) ** 1.2) * 12, fit.x)
+        return predict
+
+    def cut(crf):
+        for i in range(0, crfs.shape[0]):
+            if crf <= crfs[i]:
+                return quantisers[i]
         else:
-            return model(((crf / 12) ** 1.2) * 12)
-    return predict
+            return np.nan
+    raise UnreliableModelError(cut, f"Test encodes with higher `--crf` received better score than encodes with lower `--crf`. This may result in overboosting.")
 
 # If you want to use a different method, you can implement it here.
 #
 # This function receives quantisers corresponding to each test encodes
 # specified previously in `testing_crfs`, which is provided in the
-# first argument `crfs`.
+# first argument `crfs`. It should return a function that will return
+# predicted metric score when called with `--crf`.
+# You should raise an UnreliableModelError with a model and an error
+# message if the model constructed is unreliable. You will have to
+# return a model in the exception. If the model constructed is
+# unusable, you can use something similar to the `cut` function at the
+# end of the two builtin `metric_model` functions.
 # def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
 #     pass
 # ---------------------------------------------------------------------
@@ -440,6 +549,7 @@ metric_target = 0.480
 # ---------------------------------------------------------------------
 
 
+from copy import deepcopy
 import json
 import subprocess
 
@@ -462,6 +572,7 @@ assert scene_detection_scenes_file.exists()
 # Testing
 for n, crf in enumerate(testing_crfs):
     if not testing_resume or not temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").exists():
+        # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
         command = [
             "av1an",
             "--temp", str(temp_dir.joinpath(f"test-encode-{n:0>2}.tmp")),
@@ -481,102 +592,115 @@ for n, crf in enumerate(testing_crfs):
 
 
 # Metric
+with scene_detection_scenes_file.open("r") as scenes_f:
+    scene_detection_scenes = json.load(scenes_f)
+    scenes = scene_detection_scenes["scenes"]
+
+if not testing_resume:
+    for n in range(len(testing_crfs)):
+        temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").unlink(missing_ok=True)
+metric_encodes = [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
+                                           cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
+
+if zones_file:
+    zones_f = zones_file.open("w")
+
+if scenes_file:
+    metric_scenes = deepcopy(scene_detection_scenes)
+
 # Ding
 metric_iterate_crfs = np.append(testing_crfs, [final_max_crf, final_min_crf])
 metric_reporting_crf = testing_crfs[0]
 
+metric_scene_rjust_digits = np.floor(np.log10(len(scenes))) + 1
+metric_scene_rjust = lambda scene: str(scene).rjust(metric_scene_rjust_digits.astype(int), "0")
 metric_frame_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
-metric_frame_rjust = lambda frame: str.rjust(str(frame), metric_frame_rjust_digits.astype(int))
+metric_frame_rjust = lambda frame: str(frame).rjust(metric_frame_rjust_digits.astype(int))
+metric_scene_frame_print = lambda scene, start_frame, end_frame: f"Scene {metric_scene_rjust(scene)} Frame [{metric_frame_rjust(start_frame)}:{metric_frame_rjust(end_frame)}]"
 
+for i, scene in enumerate(scenes):
+    print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Calculating", end="\r")
+    printing = False
 
-with scene_detection_scenes_file.open("r") as scenes_f:
-    scenes = json.load(scenes_f)["scenes"]
+    quantisers = np.empty((len(testing_crfs),), dtype=float)
 
-with zones_file.open("w") as zones_f:
-    if not testing_resume:
-        for n in range(len(testing_crfs)):
-            temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").unlink(missing_ok=True)
-    metric_encodes = [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
-                                               cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
+    reference = metric_reference[scene["start_frame"]:scene["end_frame"]]
+    reference = metric_process(reference)
+    for n, crf in enumerate(testing_crfs):
+        encode = metric_encodes[n][scene["start_frame"]:scene["end_frame"]]
+        encode = metric_process(encode)
 
-    for scene in scenes:
-        print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / Calculating", end="\r")
-        printing = False
+        scores = np.array([metric_metric(frame) for frame in metric_calculate(reference, encode).frames()])
 
-        quantisers = np.empty((len(testing_crfs),), dtype=float)
+        quantisers[n] = metric_summarise(scores)
 
-        reference = metric_reference[scene["start_frame"]:scene["end_frame"]]
-        reference = metric_process(reference)
-        for n, crf in enumerate(testing_crfs):
-            encode = metric_encodes[n][scene["start_frame"]:scene["end_frame"]]
-            encode = metric_process(encode)
-
-            scores = np.array([metric_metric(frame) for frame in metric_calculate(reference, encode).frames()])
-
-            quantisers[n] = metric_summarise(scores)
-
-        for i in range(len(quantisers) - 1):
-            if metric_verbose and (not (metric_better_metric(quantisers[i], quantisers[i+1]) or np.equal(quantisers[i], quantisers[i+1]))):
-                # In this case a higher crf produces a higher quantiser than that of a lower crf.
-                print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / Potential unreliable polynomial model / Encode with --crf {testing_crfs[i]:.2f} receives quantiser {quantisers[i]:.3f} while encode with --crf {testing_crfs[i+1]:.2f} receives quantiser {quantisers[i+1]:.3f}")
-                printing = True
-
+    try:
         model = metric_model(testing_crfs, quantisers)
+    except UnreliableModelError as e:
+        if not np.all(metric_better_metric(quantisers, metric_target)):
+            print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Unreliable model / {str(e)}")
+            printing = True
+        model = e.model
 
-        final_crf = None
-        # This is in fact iterating metric_iterate_crfs, which is constructed above below the Ding comment.
-        for n in range(len(testing_crfs) + 1):
-            value = model(metric_iterate_crfs[n])
-            if metric_better_metric(value, metric_target):
-                if n == len(testing_crfs):
-                    # This means even at final_max_crf, we are still higher than the target quality.
-                    # We will just use final_max_crf as final_crf. It shouldn't matter.
-                    final_crf = metric_iterate_crfs[n]
-                    break
-                else:
-                    # This means the point where predicted quality meets the target is in higher crf ranges.
-                    # We will skip this range and continue.
-                    continue
+    final_crf = None
+    # This is in fact iterating metric_iterate_crfs, which is constructed above below the Ding comment.
+    for n in range(len(testing_crfs) + 1):
+        if metric_better_metric(model(metric_iterate_crfs[n]), metric_target):
+            if n == len(testing_crfs):
+                # This means even at final_max_crf, we are still higher than the target quality.
+                # We will just use final_max_crf as final_crf. It shouldn't matter.
+                final_crf = metric_iterate_crfs[n]
+                break
             else:
-                # Because we know from previous iteration that at metric_iterate_crfs[n-1], the predicted quality is higher than the target,
-                # and now at metric_iterate_crfs[n], the prediceted quality is lower than the target,
-                # this means the point where predicted quality meets the target is within this range between metric_iterate_crfs[n] and metric_iterate_crfs[n-1].
-                # The only exception is when n == 0, while will be dealt with later.
-                last_value = value
-                for crf in np.arange(metric_iterate_crfs[n] - 0.05, metric_iterate_crfs[n-1] - 0.025, -0.05):
-                    value = model(crf)
-                    if metric_better_metric(value, metric_target):
-                        # We've found the smaller --crf whose predicted quality is higher than the target.
-                        final_crf = crf
-                        break
-
-                    if last_value is not None:
-                        if not metric_better_metric(value, last_value):
-                            # This means the predicted quality actually drops as `--crf` goes down, which indicates a problem in the polynomial model.
-                            # That's said the model can still be used. Either we will never go up again and reach the target quality, in which case the very last else clause will trigger, or we will reach the point when it goes back up and we may result in a lower `--crf` than what's optimal, but that's not really a problem per se.
-                            print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / Unreliable polynomial model / This may result in lower `--crf` than what's optimal, but otherwise it will still reach the target quality")
-                            printing = True
-                            last_value = None
-                        else:
-                            last_value = value
-                else:
-                    # The last item in the iteration is metric_iterate_crfs[n-1], and from outer loop we know that at that crf the predicted quality is higher than the target.
-                    # The only case that this else clause will be reached is at n == 0, that even at metric_iterate_crfs[-1], or final_min_crf, the predicted quality is still below the target the target.
-                    print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / Potential low quality scene / The predicted quality at `final_min_crf` is {value:.3f}, which is worse than `metric_target` at {metric_target:.3f}")
-                    printing = True
-                    final_crf = metric_iterate_crfs[n-1]
-                
-                if final_crf is not None:
-                    break
+                # This means the point where predicted quality meets the target is in higher crf ranges.
+                # We will skip this range and continue.
+                continue
         else:
-            assert False, "This indicates a bug in the code. Please report this to the repository including this error message in full."
+            # Because we know from previous iteration that at metric_iterate_crfs[n-1], the predicted quality is higher than the target,
+            # and now at metric_iterate_crfs[n], the prediceted quality is lower than the target,
+            # this means the point where predicted quality meets the target is within this range between metric_iterate_crfs[n] and metric_iterate_crfs[n-1].
+            # The only exception is when n == 0, while will be dealt with later.
+            for crf in np.arange(metric_iterate_crfs[n] - 0.05, metric_iterate_crfs[n-1] - 0.005, -0.05):
+                if metric_better_metric((value := model(crf - 0.005)), metric_target): # Also numeric instability stuff
+                    # We've found the biggest --crf whose predicted quality is higher than the target.
+                    final_crf = crf
+                    break
+            else:
+                # The last item in the iteration is metric_iterate_crfs[n-1], and from outer loop we know that at that crf the predicted quality is higher than the target.
+                # The only case that this else clause will be reached is at n == 0, that even at metric_iterate_crfs[-1], or final_min_crf, the predicted quality is still below the target the target.
+                print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Potential low quality scene / The predicted quality at `final_min_crf` is {value:.3f}, which is worse than `metric_target` at {metric_target:.3f}")
+                printing = True
+                final_crf = metric_iterate_crfs[n-1]
+            
+            if final_crf is not None:
+                break
+    else:
+        assert False, "This indicates a bug in the code. Please report this to the repository including this error message in full."
 
-        final_crf = final_dynamic_crf(final_crf)
-        # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
-        final_crf = round(final_crf / 0.25) * 0.25
+    final_crf = final_dynamic_crf(final_crf)
+    # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
+    final_crf = round(final_crf / 0.25) * 0.25
 
-        if printing or metric_verbose or final_crf < metric_reporting_crf:
-            print(f"Scene [{metric_frame_rjust(scene["start_frame"])}:{metric_frame_rjust(scene["end_frame"])}] / OK / Final crf: {final_crf:.2f}")
+    if printing or metric_verbose or final_crf < metric_reporting_crf:
+        print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / OK / Final crf: {final_crf:.2f}")
 
+    if zones_file:
         # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
         zones_f.write(f"{scene["start_frame"]} {scene["end_frame"]} svt-av1 {"reset" if final_parameters_reset else ""} --crf {final_crf:.2f} {final_dynamic_parameters(final_crf)} {final_parameters}\n")
+
+    if scenes_file:
+        metric_scenes["scenes"][i]["zone_overrides"] = {
+            "encoder": "svt_av1",
+            "passes": 1,
+            "video_params": ["--crf", f"{final_crf:.2f}" ] + final_dynamic_parameters(final_crf).split() + final_parameters.split(),
+            "photon_noise": None,
+            "extra_splits_len": scene_detection_extra_split,
+            "min_scene_len": scene_detection_min_scene_len
+        }
+
+if zones_file:
+    zones_f.close()
+
+if scenes_file:
+    with scenes_file.open("w") as scenes_f:
+        json.dump(metric_scenes, scenes_f)
