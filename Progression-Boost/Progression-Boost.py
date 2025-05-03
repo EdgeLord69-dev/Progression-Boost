@@ -390,8 +390,8 @@ class UnreliableModelError(Exception):
 def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
     if crfs.shape[0] >= 4:
         polynomial = lambda X, coef: coef[0] * X ** 3 + coef[1] * X ** 2 + coef[2] * X + coef[3]
-        # Mean Squared Error
-        objective = lambda coef: np.mean((quantisers - polynomial(crfs, coef)) ** 2)
+        # Mean Squared Error biased towards overboosting
+        objective = lambda coef: np.average((error := (quantisers - polynomial(crfs, coef))) ** 2, weights=metric_better_metric(0, error) + 1.0)
         if metric_better_metric(quantisers[0] * 1.1, quantisers[0]):
             bounds = Bounds([-np.inf, -np.inf, -np.inf, -np.inf], [0, np.inf, np.inf, np.inf])
             constraints = [
@@ -409,14 +409,14 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
                 {"type": "ineq", "fun": lambda coef: -(coef[1] ** 2 - 3 * coef[0] * coef[2])}
             ]
         fit = minimize(objective, [0, *np.polyfit(crfs, quantisers, 2)],
-                       method="SLSQP", options={"ftol": 1e-9}, bounds=bounds, constraints=constraints)
-        if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1.1e-9):
+                       method="SLSQP", options={"ftol": 1e-6}, bounds=bounds, constraints=constraints)
+        if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
             return partial(polynomial, coef=fit.x)
 
     if crfs.shape[0] >= 3:
         polynomial = lambda X, coef: coef[0] * X ** 2 + coef[1] * X + coef[2]
-        # Mean Squared Error
-        objective = lambda coef: np.mean((quantisers - polynomial(crfs, coef)) ** 2)
+        # Mean Squared Error biased towards overboosting
+        objective = lambda coef: np.average((error := (quantisers - polynomial(crfs, coef))) ** 2, weights=metric_better_metric(0, error) + 1.0)
         if metric_better_metric(quantisers[0] * 1.1, quantisers[0]):
             bounds = Bounds([-np.inf, -np.inf, -np.inf], [0, np.inf, np.inf])
             # First derivative 2ax + b <= 0 if np.greater
@@ -426,19 +426,27 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
             # First derivative 2ax + b >= 0 if np.less
             constraints = [{"type": "ineq", "fun": lambda coef: 2 * coef[0] * final_min_crf + coef[1]}]
         fit = minimize(objective, [0, *np.polyfit(crfs, quantisers, 1)],
-                       method="SLSQP", options={"ftol": 1e-9}, bounds=bounds, constraints=constraints)
-        if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1.1e-9):
+                       method="SLSQP", options={"ftol": 1e-6}, bounds=bounds, constraints=constraints)
+        if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
             return partial(polynomial, coef=fit.x)
 
     if crfs.shape[0] >= 2:
-        fit = Polynomial.fit(crfs, quantisers, 1)
-        if not np.isclose(fit.coef[1], 0, rtol=0, atol=1e-9) and metric_better_metric(quantisers[0] * 1.1, quantisers[0]) == (fit.coef[1] < 0):
+        polynomial = lambda X, coef: coef[0] * X + coef[1]
+        # Mean Squared Error biased towards overboosting
+        objective = lambda coef: np.average((error := (quantisers - polynomial(crfs, coef))) ** 2, weights=metric_better_metric(0, error) + 1.0)
+        if metric_better_metric(quantisers[0] * 1.1, quantisers[0]):
+            bounds = Bounds([-np.inf, -np.inf], [0, np.inf])
+        else:
+            bounds = Bounds([0, -np.inf], [np.inf, np.inf])
+        fit = minimize(objective, np.polyfit(crfs, quantisers, 1),
+                       method="L-BFGS-B", options={"ftol": 1e-6}, bounds=bounds)
+        if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
             if not crfs.shape[0] >= 4:
-                return fit
+                return partial(polynomial, coef=fit.x)
             else:
                 def cut(crf):
-                    if crf <= crfs[-1]:
-                        return fit(crf)
+                    if crf <= np.average([crfs[-1], final_max_crf], weights=[3, 1]):
+                        return polynomial(crf, fit.x)
                     else:
                         return np.nan
                 return cut
@@ -462,23 +470,30 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
 # for Butteraugli 3Norm, comment the function above for SSIMU2 and
 # uncomment the function below.
 # def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
-#     fit = Polynomial.fit(crfs, quantisers, 1)
-#     if not np.isclose(fit.coef[1], 0, rtol=0, atol=1e-9) and metric_better_metric(quantisers[0] * 1.1, quantisers[0]) == (fit.coef[1] < 0):
+#     polynomial = lambda X, coef: coef[0] * X + coef[1]
+#     # Mean Squared Error biased towards overboosting
+#     objective = lambda coef: np.average((error := (quantisers - polynomial(crfs, coef))) ** 2, weights=metric_better_metric(0, error) + 1.0)
+#     if metric_better_metric(quantisers[0] * 1.1, quantisers[0]):
+#         bounds = Bounds([-np.inf, -np.inf], [0, np.inf])
+#     else:
+#         bounds = Bounds([0, -np.inf], [np.inf, np.inf])
+#     fit = minimize(objective, np.polyfit(crfs, quantisers, 1),
+#                     method="L-BFGS-B", options={"ftol": 1e-6}, bounds=bounds)
+#     if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
 #         def predict(crf):
 #             if crf >= 12:
-#                 return fit(crf)
+#                 return polynomial(crf, fit.x)
 #             else:
-#                 return fit(((crf / 12) ** 1.2) * 12)
+#                 return polynomial(((crf / 12) ** 1.2) * 12, fit.x)
 #         return predict
 # 
-#     else:
-#         def cut(crf):
-#             for i in range(0, crfs.shape[0]):
-#                 if crf <= crfs[i]:
-#                     return quantisers[i]
-#             else:
-#                 return np.nan
-#         raise UnreliableModelError(cut, f"Test encodes with higher `--crf` received better score than encodes with lower `--crf`. This may result in overboosting.")
+#     def cut(crf):
+#         for i in range(0, crfs.shape[0]):
+#             if crf <= crfs[i]:
+#                 return quantisers[i]
+#         else:
+#             return np.nan
+#     raise UnreliableModelError(cut, f"Test encodes with higher `--crf` received better score than encodes with lower `--crf`. This may result in overboosting.")
 
 # If you want to use a different method, you can implement it here.
 #
