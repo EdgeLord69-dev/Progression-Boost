@@ -484,7 +484,7 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
             if crf >= 12:
                 return polynomial(crf, fit.x)
             else:
-                return polynomial(((crf / 12) ** 1.2) * 12, fit.x)
+                return polynomial(13 - (13 - crf) ** 1.13, fit.x)
         return predict
 
     def cut(crf):
