@@ -441,7 +441,7 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
         fit = minimize(objective, np.polyfit(crfs, quantisers, 1),
                        method="L-BFGS-B", options={"ftol": 1e-6}, bounds=bounds)
         if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
-            if not crfs.shape[0] >= 4:
+            if not crfs.shape[0] >= 3:
                 return partial(polynomial, coef=fit.x)
             else:
                 def cut(crf):
