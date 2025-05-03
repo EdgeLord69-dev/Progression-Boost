@@ -9,7 +9,7 @@
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ //////////////////////////////////
-# The guide and config starts approximately 30 lines below this. Start
+# The guide and config starts approximately 40 lines below this. Start
 # reading from there.
 # ////////////////////////////////// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 # ---------------------------------------------------------------------
@@ -18,11 +18,13 @@
 
 import argparse
 from collections.abc import Callable
+from copy import deepcopy
 from functools import partial
-from pathlib import Path
+import json
 import numpy as np
-from numpy.polynomial.polynomial import Polynomial
+from pathlib import Path
 from scipy.optimize import Bounds, minimize
+import subprocess
 import vapoursynth as vs
 from vapoursynth import core
 
@@ -547,11 +549,6 @@ metric_target = 0.480
 # SOFTWARE.
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
-
-
-from copy import deepcopy
-import json
-import subprocess
 
 
 # Scene dectection
