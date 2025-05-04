@@ -56,6 +56,7 @@ temp_dir.mkdir(parents=True, exist_ok=True)
 testing_resume = args.resume
 metric_verbose = args.verbose
 
+
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Before everything, the codes above are for commandline arguments.
@@ -169,6 +170,10 @@ def final_dynamic_crf(crf: float) -> float:
 # for the output zones file (and the eventual final encode)? This
 # function receives a `--crf` value and should return a string of
 # parameters.
+#
+# An example usage is to lower `--preset` while increase `--crf` a
+# little bit for scenes that are boosted to very low `--crf`. However,
+# this is not tested, and whether it's worth it is not clear.
 #
 # If you don't want to change any parameters dynamically, leave this
 # function untouched.
@@ -389,6 +394,8 @@ class UnreliableModelError(Exception):
 # constrained cubic polynomial model. If a fit could not be made under
 # constraints, an „Unreliable model“ will be reported. You don't need
 # to modify anything here unless you want to implement your own method.
+# The code here is a little bit long, try scrolling harder if you can't
+# reach the next paragraph.
 # def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
 #     if crfs.shape[0] >= 4:
 #         polynomial = lambda X, coef: coef[0] * X ** 3 + coef[1] * X ** 2 + coef[2] * X + coef[3]
