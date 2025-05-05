@@ -18,8 +18,8 @@
 
 import argparse
 from collections.abc import Callable
-from copy import deepcopy
 from functools import partial
+from itertools import chain, islice
 import json
 import numpy as np
 from pathlib import Path
@@ -33,7 +33,7 @@ parser.add_argument("-i", "--input", type=Path, required=True, help="Source vide
 parser.add_argument("--encode-input", type=Path, help="Source file for test encodes. Supports both video file and vpy file (Default: same as `--input`). This file is only used to perform test encodes, while scene detection will be performed using the video file specified in `--input`, and filtering before metric calculation can be set in the `Progression-Boost.py` file itself")
 parser.add_argument("-o", "--output-zones", type=Path, help="Output zones file for encoding")
 parser.add_argument("--output-scenes", type=Path, help="Output scenes file for encoding")
-parser.add_argument("--temp", type=Path, help="Temporary folder for Progression Boost (Default: output zones file with file extension replaced by „.boost.tmp“)")
+parser.add_argument("--temp", type=Path, help="Temporary folder for Progression Boost (Default: output zones or scenes file with file extension replaced by „.boost.tmp“)")
 parser.add_argument("-r", "--resume", action="store_true", help="Resume from the temporary folder. By enabling this option, Progression Boost will reuse finished or unfinished testing encodes. This should be disabled should the parameters for test encode be changed")
 parser.add_argument("--verbose", action="store_true", help="Progression Boost by default only reports scenes that have received big boost, or scenes that have built unexpected polynomial model. By enabling this option, all scenes will be reported")
 args = parser.parse_args()
@@ -191,10 +191,29 @@ final_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset -1 --color-prim
 final_parameters_reset = False
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
-# Specify the av1an parameters for scene detection. The results from
-# this scene detection pass will be used both for test encodes and
-# the final encodes. You need to specify all parameters for an
-# `--sc-only` pass other than `-i`, `--temp` and `--scenes`.
+# Specify the desired scene length for scene detection. The result from
+# this scene detection pass will be used both for test encodes and the
+# final encodes.
+scene_detection_extra_split = 240
+scene_detection_min_scene_len = 12
+# The next setting is only used if WWXD is selected as the scene
+# detection method in the next section.
+# WWXD has the tendency to flag too much scenechanges in complex
+# everchanging sections. This setting marks the length for a scene for
+# the scene detection mechanism to stop dividing it any further.
+# However, this does not mean there won't be scenes shorter than this
+# setting. It's likely that scenes longer than the this setting will be
+# divided into scenes that are shorter than this setting. The hard limit
+# is still specified by `scene_detection_min_scene_len`.
+# Also, this setting only affects sections where there are a lot of
+# scenechanges detected by WWXD. For calmer sections where WWXD doesn't
+# flag any scenechanges, the scene detection mechanism will only
+# attempt to divide a scene if it is longer than
+# `scene_detection_extra_split`, and this setting has no effects.
+scene_detection_target_split = 60
+# ---------------------------------------------------------------------
+# In the grand scheme of scene detection, av1an is the more universal
+# option for scene detection. It works well in most conditions.
 #
 # `--sc-method fast` is often preferred over `--sc-method standard`.
 # The reason is that `--sc-method standard` will sometimes place
@@ -206,12 +225,41 @@ final_parameters_reset = False
 # result, since scenes with such optimisation can contain frames from
 # nearby scenes, which said frames will then certainly be overboosted
 # or underboosted.
-scene_detection_extra_split = 240
-scene_detection_min_scene_len = 12
+# 
+# If you want to use av1an for scene detection, specify the av1an
+# parameters. You need to specify all parameters for an `--sc-only`
+# pass other than `-i`, `--temp` and `--scenes`.
+scene_detection_method = "av1an".lower()
 scene_detection_parameters = f"--sc-method fast --chunk-method lsmash"
 # Below are the parameters that should always be used. Regular users
 # would not need to modify these.
 scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_split} --min-scene-len {scene_detection_min_scene_len}"
+
+# av1an is mostly good, except for one single problem: av1an often
+# prefers to place the keyframe at the start of a series of still
+# frames. This preference even takes priority over placing keyframes at
+# actual scene changes. The problem is that these few frames, with
+# movements, after the actual scene changes will often be encoded very,
+# very poorly. Compared to av1an, WWXD is more reliable in this matter,
+# and would have less issues like this.
+#
+# The downside of WWXD is that although it works well for a regular
+# show, it really struggles in sections challenging for scene
+# detection. It will mark either too much or too little keyframes. This
+# is somewhat alleviated by the additional scene detection logic in
+# this script, but the issue remains.
+#
+# In general, WWXD is preferred over av1an on sources without any
+# sections that are very challenging for scene detection, or for high
+# quality encodes that want even the worst frames to be good. If you
+# want to use WWXD for scene dection, comment the lines above for
+# av1an, and uncomment the lines below for WWXD via VapourSynth.
+#
+# Note that if you're encoding videos with full instead of limited
+# colour range, you must go down to the code and adjust the threshold.
+# Search for „limited“, and there will be a comment there marking how
+# you should adjust.
+# scene_detection_method = "vapoursynth".lower()
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Specify the av1an parameters for the test encodes. You need to
@@ -560,18 +608,122 @@ metric_target = 85.000
 
 # Scene dectection
 scene_detection_scenes_file = temp_dir.joinpath("scenes-detection.scenes.json")
-if not testing_resume or not scene_detection_scenes_file.exists():
-    scene_detection_scenes_file.unlink(missing_ok=True)
-    command = [
-        "av1an",
-        "--temp", str(temp_dir.joinpath("scenes-detection.tmp")),
-        "-i", str(input_file),
-        "--scenes", str(scene_detection_scenes_file),
-        *scene_detection_parameters.split()
-    ]
-    subprocess.run(command, text=True, check=True)
-assert scene_detection_scenes_file.exists()
 
+if scene_detection_method == "av1an":
+    if not testing_resume or not scene_detection_scenes_file.exists():
+        scene_detection_scenes_file.unlink(missing_ok=True)
+        command = [
+            "av1an",
+            "--temp", str(temp_dir.joinpath("scenes-detection.tmp")),
+            "-i", str(input_file),
+            "--scenes", str(scene_detection_scenes_file),
+            *scene_detection_parameters.split()
+        ]
+        subprocess.run(command, text=True, check=True)
+    assert scene_detection_scenes_file.exists()
+
+    with scene_detection_scenes_file.open("r") as scenes_f:
+        scenes = json.load(scenes_f)
+
+elif scene_detection_method == "vapoursynth":
+    scene_detection_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
+    scene_detection_rjust = lambda frame: str(frame).rjust(scene_detection_rjust_digits.astype(int))
+
+    if not testing_resume or not scene_detection_scenes_file.exists():
+        assert scene_detection_extra_split >= scene_detection_min_scene_len * 2, "`scene_detection_method` `vapoursynth` does not support `scene_detection_extra_split` to be smaller than 2 times `scene_detection_min_scene_len`."
+    
+        scene_detection_clip = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
+        scene_detection_bits = scene_detection_clip.format.bits_per_sample
+        scene_detection_clip = scene_detection_clip.std.PlaneStats(scene_detection_clip[0] + scene_detection_clip, plane=0, prop="Luma")
+        target_width = np.round(np.sqrt(1280 * 720 / scene_detection_clip.width / scene_detection_clip.height) * scene_detection_clip.width / 40) * 40
+        if target_width < scene_detection_clip.width * 0.9:
+            target_height = np.ceil(target_width / scene_detection_clip.width * scene_detection_clip.height)
+            src_height = target_height / target_width * scene_detection_clip.width
+            src_top = (scene_detection_clip.height - src_height) / 2
+            scene_detection_clip = scene_detection_clip.resize.Point(width=target_width, height=target_height, src_top=src_top, src_height=src_height,
+                                                                     format=vs.YUV420P8, dither_type="none")
+        scene_detection_clip = scene_detection_clip.wwxd.WWXD()
+        
+        scenes = {}
+        scenes["frames"] = scene_detection_clip.num_frames
+        scenes["scenes"] = []
+
+        diffs = np.empty((scene_detection_clip.num_frames,), dtype=float)
+        diffs[0] = 1.0
+        luma_scenecut_prev = True
+        def scene_detection_split_scene(great_diffs, diffs, start_frame, end_frame):
+            print(f"Frame [{scene_detection_rjust(start_frame)}:{scene_detection_rjust(end_frame)}] / Dividing scenes", end="\r")
+
+            if end_frame - start_frame <= scene_detection_target_split or \
+               end_frame - start_frame < 2 * scene_detection_min_scene_len:
+                return [start_frame]
+
+            great_diffs_sort = np.argsort(great_diffs)[::-1]
+
+            if end_frame - start_frame <= 2 * scene_detection_target_split:
+                for current_frame in great_diffs_sort:
+                    if great_diffs[current_frame] < 1.0:
+                        break
+                    if current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len and \
+                       current_frame - start_frame <= scene_detection_target_split and end_frame - current_frame <= scene_detection_target_split:
+                        return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
+                               scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
+
+            for current_frame in great_diffs_sort:
+                if great_diffs[current_frame] < 1.0:
+                    break
+                if (current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len) and \
+                   (current_frame - start_frame <= scene_detection_target_split or end_frame - current_frame <= scene_detection_target_split):
+                    return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
+                           scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
+
+            if end_frame - start_frame <= scene_detection_extra_split:
+                for current_frame in great_diffs_sort:
+                    if great_diffs[current_frame] < 1.0:
+                        return [start_frame]
+                    if current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len:
+                        return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
+                               scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
+
+            else: # end_frame - start_frame > scene_detection_extra_split
+                diffs_sort = np.argsort(diffs, stable=True)[::-1]
+
+                for current_frame in diffs_sort:
+                    if current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len:
+                        return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
+                               scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
+
+            assert False, "This indicates a bug in the original code. Please report this to the repository including this error message in full."
+        for current_frame, frame in islice(enumerate(scene_detection_clip.frames(backlog=60)), 1, None):
+            print(f"Frame {current_frame} / Detecting scenes", end="\r")
+
+            scene_detection_scenecut = frame.props["Scenechange"] == 1
+            # Modify here to 252.125 and 2.875 if your source has full instead of limited colour range
+            luma_scenecut = frame.props["LumaMin"] > 232.125 * 2 ** (scene_detection_bits - 8) or \
+                            frame.props["LumaMax"] < 18.875 * 2 ** (scene_detection_bits - 8)
+
+            if scene_detection_scenecut or (luma_scenecut and not luma_scenecut_prev):
+                diffs[current_frame] = frame.props["LumaDiff"] + 1.0
+            else:
+                diffs[current_frame] = frame.props["LumaDiff"]
+            luma_scenecut_prev = luma_scenecut
+
+        great_diffs = diffs.copy()
+        great_diffs[great_diffs < 1.0] = 0
+        start_frames = scene_detection_split_scene(great_diffs, diffs, 0, len(diffs)) + [scene_detection_clip.num_frames]
+        for i in range(len(start_frames) - 1):
+            scenes["scenes"].append({"start_frame": int(start_frames[i]), "end_frame": int(start_frames[i + 1]), "zone_overrides": None})
+    
+        with scene_detection_scenes_file.open("w") as scenes_f:
+            json.dump(scenes, scenes_f)
+
+    else:
+        with scene_detection_scenes_file.open("r") as scenes_f:
+            scenes = json.load(scenes_f)
+
+else:
+    assert False, "Invalid `scene_detection_method`."
+    
 
 # Testing
 for n, crf in enumerate(testing_crfs):
@@ -594,35 +746,27 @@ for n, crf in enumerate(testing_crfs):
         subprocess.run(command, text=True, check=True)
         assert temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").exists()
 
+        temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").unlink(missing_ok=True)
+
 
 # Metric
-with scene_detection_scenes_file.open("r") as scenes_f:
-    scene_detection_scenes = json.load(scenes_f)
-    scenes = scene_detection_scenes["scenes"]
-
-if not testing_resume:
-    for n in range(len(testing_crfs)):
-        temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").unlink(missing_ok=True)
 metric_encodes = [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
                                            cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
 
 if zones_file:
     zones_f = zones_file.open("w")
 
-if scenes_file:
-    metric_scenes = deepcopy(scene_detection_scenes)
-
 # Ding
 metric_iterate_crfs = np.append(testing_crfs, [final_max_crf, final_min_crf])
 metric_reporting_crf = testing_crfs[0]
 
-metric_scene_rjust_digits = np.floor(np.log10(len(scenes))) + 1
+metric_scene_rjust_digits = np.floor(np.log10(len(scenes["scenes"]))) + 1
 metric_scene_rjust = lambda scene: str(scene).rjust(metric_scene_rjust_digits.astype(int), "0")
 metric_frame_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
 metric_frame_rjust = lambda frame: str(frame).rjust(metric_frame_rjust_digits.astype(int))
 metric_scene_frame_print = lambda scene, start_frame, end_frame: f"Scene {metric_scene_rjust(scene)} Frame [{metric_frame_rjust(start_frame)}:{metric_frame_rjust(end_frame)}]"
 
-for i, scene in enumerate(scenes):
+for i, scene in enumerate(scenes["scenes"]):
     print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Calculating", end="\r")
     printing = False
 
@@ -679,7 +823,7 @@ for i, scene in enumerate(scenes):
             if final_crf is not None:
                 break
     else:
-        assert False, "This indicates a bug in the code. Please report this to the repository including this error message in full."
+        assert False, "This indicates a bug in the original code. Please report this to the repository including this error message in full."
 
     final_crf = final_dynamic_crf(final_crf)
     # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
@@ -693,7 +837,7 @@ for i, scene in enumerate(scenes):
         zones_f.write(f"{scene["start_frame"]} {scene["end_frame"]} svt-av1 {"reset" if final_parameters_reset else ""} --crf {final_crf:.2f} {final_dynamic_parameters(final_crf)} {final_parameters}\n")
 
     if scenes_file:
-        metric_scenes["scenes"][i]["zone_overrides"] = {
+        scene["zone_overrides"] = {
             "encoder": "svt_av1",
             "passes": 1,
             "video_params": ["--crf", f"{final_crf:.2f}" ] + final_dynamic_parameters(final_crf).split() + final_parameters.split(),
@@ -707,4 +851,4 @@ if zones_file:
 
 if scenes_file:
     with scenes_file.open("w") as scenes_f:
-        json.dump(metric_scenes, scenes_f)
+        json.dump(scenes, scenes_f)
