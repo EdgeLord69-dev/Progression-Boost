@@ -60,3 +60,9 @@ To use the Dispatch Server:
 ### Note
 
 * Windows' builtin Task Manager is not a good tool for checking CPU usage. The CPU Utility reported in Task Manager will never reach 100% on most systems, despite the CPU is already delivering all the performance it can. This is not an advertisement, but HWiNFO, a tool commonly used by PC building community, shows a different CPU Usage number, which is more aligned to what people expects.  
+
+## VapourSynth Scene Detection
+
+This is an excerpt from [Progression Boost](#progression-boost). Use this script to try out WWXD and Scxvid for av1an encoding.  
+
+Check the [`requirements.txt`](VapourSynth-Scene-Detection/requirements.txt). Download the [script](VapourSynth-Scene-Detection/VapourSynth-Scene-Detection.py) and run `python VapourSynth-Scene-Detection.py --help` to view the help and the guide.  
