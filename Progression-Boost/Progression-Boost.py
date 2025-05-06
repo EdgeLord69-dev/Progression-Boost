@@ -25,6 +25,7 @@ import numpy as np
 from pathlib import Path
 from scipy.optimize import Bounds, minimize
 import subprocess
+from time import time
 import vapoursynth as vs
 from vapoursynth import core
 
@@ -196,8 +197,8 @@ final_parameters_reset = False
 # final encodes.
 scene_detection_extra_split = 264
 scene_detection_min_scene_len = 12
-# The next setting is only used if WWXD is selected as the scene
-# detection method in the next section.
+# The next setting is only used if WWXD or SCXVID via VapourSynth is
+# selected as the scene detection method in the next section.
 # WWXD has the tendency to flag too much scenechanges in complex
 # everchanging sections. This setting marks the length for a scene for
 # the scene detection mechanism to stop dividing it any further.
@@ -238,28 +239,37 @@ scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_
 # av1an is mostly good, except for one single problem: av1an often
 # prefers to place the keyframe at the start of a series of still
 # frames. This preference even takes priority over placing keyframes at
-# actual scene changes. The problem is that these few frames, with
-# movements, after the actual scene changes will often be encoded very,
-# very poorly. Compared to av1an, WWXD is more reliable in this matter,
-# and would have less issues like this.
+# actual scene changes. The problem is that these few frames have
+# movements and are located at the very end of the previous scene after
+# an actual scene changes, which is why they will often be encoded very
+# horrendously. Compared to av1an, WWXD or SCXVID is more reliable in
+# this matter, and would have less issues like this.
 #
-# The downside of WWXD is that although it works well for a regular
-# show, it really struggles in sections challenging for scene
+# The downside of WWXD or SCXVID is that although it works well for a
+# regular show, it really struggles in sections challenging for scene
 # detection. It will mark either too much or too little keyframes. This
-# is somewhat alleviated by the additional scene detection logic in
-# this script, but the issue remains.
+# is largely alleviated by the additional scene detection logic in this
+# script.
 #
-# In general, WWXD is preferred over av1an on sources without any
-# sections that are very challenging for scene detection, or for high
-# quality encodes that want even the worst frames to be good. If you
-# want to use WWXD for scene dection, comment the lines above for
-# av1an, and uncomment the lines below for WWXD via VapourSynth.
+# In general, WWXD or SCXVID is preferred over av1an on sources without
+# any sections that are very challenging for scene detection, or - not
+# and, or - for high quality encodes that want even the worst frames to
+# be good.
+# 
+# Progression Boost provides two options for VapourSynth-based scene
+# detection, `wwxd` and `wwxd_scxvid`. `wwxd_scxvid` is preferred
+# unless it's too slow, which `wwxd` can be then used. If you want to
+# use VapourSynth-based scene detection, comment the lines above for
+# av1an, uncomment the first line below for VapourSynth, and then
+# uncomment the specific method you want to use for scene detection.
 #
 # Note that if you're encoding videos with full instead of limited
 # colour range, you must go down to the code and adjust the threshold.
 # Search for „limited“, and there will be a comment there marking how
 # you should adjust.
 # scene_detection_method = "vapoursynth".lower()
+# scene_detection_vapoursynth_method = "wwxd_scxvid".lower() # Preferred
+# scene_detection_vapoursynth_method = "wwxd".lower() # Fast
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Specify the av1an parameters for the test encodes. You need to
@@ -643,6 +653,11 @@ elif scene_detection_method == "vapoursynth":
             scene_detection_clip = scene_detection_clip.resize.Point(width=target_width, height=target_height, src_top=src_top, src_height=src_height,
                                                                      format=vs.YUV420P8, dither_type="none")
         scene_detection_clip = scene_detection_clip.wwxd.WWXD()
+        try:
+            if scene_detection_vapoursynth_method == "wwxd_scxvid":
+                scene_detection_clip = scene_detection_clip.scxvid.Scxvid()
+        except NameError:
+            assert False, "You need to select a `scene_detection_vapoursynth_method` to use `scene_detection_method` `vapoursynth`. Please check your config inside `Progression-Boost.py`."
         
         scenes = {}
         scenes["frames"] = scene_detection_clip.num_frames
@@ -662,24 +677,24 @@ elif scene_detection_method == "vapoursynth":
 
             if end_frame - start_frame <= 2 * scene_detection_target_split:
                 for current_frame in great_diffs_sort:
-                    if great_diffs[current_frame] < 1.0:
+                    if great_diffs[current_frame] < 1.16:
                         break
                     if current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len and \
                        current_frame - start_frame <= scene_detection_target_split and end_frame - current_frame <= scene_detection_target_split:
                         return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
                                scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
 
-            for current_frame in great_diffs_sort:
-                if great_diffs[current_frame] < 1.0:
-                    break
-                if (current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len) and \
-                   (current_frame - start_frame <= scene_detection_target_split or end_frame - current_frame <= scene_detection_target_split):
-                    return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
-                           scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
-
             if end_frame - start_frame <= scene_detection_extra_split:
                 for current_frame in great_diffs_sort:
-                    if great_diffs[current_frame] < 1.0:
+                    if great_diffs[current_frame] < 1.16:
+                        break
+                    if (current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len) and \
+                       (current_frame - start_frame <= scene_detection_target_split or end_frame - current_frame <= scene_detection_target_split):
+                        return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
+                               scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
+
+                for current_frame in great_diffs_sort:
+                    if great_diffs[current_frame] < 1.16:
                         return [start_frame]
                     if current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len:
                         return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
@@ -687,17 +702,25 @@ elif scene_detection_method == "vapoursynth":
 
             else: # end_frame - start_frame > scene_detection_extra_split
                 for current_frame in great_diffs_sort:
-                    if great_diffs[current_frame] < 1.0:
+                    if great_diffs[current_frame] < 1.12:
                         break
                     if (current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len) and \
                        np.ceil((current_frame - start_frame) / scene_detection_extra_split).astype(int) + \
                        np.ceil((end_frame - current_frame) / scene_detection_extra_split).astype(int) <= \
-                       np.ceil((end_frame - start_frame) / scene_detection_extra_split + 0.1).astype(int):
+                       np.ceil((end_frame - start_frame) / scene_detection_extra_split + 0.15).astype(int):
                         return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
                                scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
                                
                 for current_frame in great_diffs_sort:
-                    if great_diffs[current_frame] < 1.0:
+                    if great_diffs[current_frame] < 1.16:
+                        break
+                    if (current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len) and \
+                       (current_frame - start_frame <= scene_detection_target_split or end_frame - current_frame <= scene_detection_target_split):
+                        return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
+                               scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
+
+                for current_frame in great_diffs_sort:
+                    if great_diffs[current_frame] < 1.16:
                         break
                     if current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len:
                         return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
@@ -715,20 +738,27 @@ elif scene_detection_method == "vapoursynth":
 
             assert False, "This indicates a bug in the original code. Please report this to the repository including this error message in full."
 
-        for current_frame, frame in islice(enumerate(scene_detection_clip.frames(backlog=60)), 1, None):
-            print(f"Frame {current_frame} / Detecting scenes", end="\r")
+        start = time()
+        for current_frame, frame in islice(enumerate(scene_detection_clip.frames(backlog=48)), 1, None):
+            print(f"Frame {current_frame} / Detecting scenes / {current_frame / (time() - start):.02f} fps", end="\r")
 
-            scene_detection_scenecut = frame.props["Scenechange"] == 1
+            if scene_detection_vapoursynth_method == "wwxd":
+                scene_detection_scenecut = frame.props["Scenechange"] == 1
+            elif scene_detection_vapoursynth_method == "wwxd_scxvid":
+                scene_detection_scenecut = (frame.props["Scenechange"] == 1) + (frame.props["_SceneChangePrev"] == 1) / 2
+            else:
+                assert False, "Invalid `scene_detection_vapoursynth_method`. Please check your config inside `Progression-Boost.py`."
             # Modify here to 252.125 and 2.875 if your source has full instead of limited colour range
             luma_scenecut = frame.props["LumaMin"] > 232.125 * 2 ** (scene_detection_bits - 8) or \
                             frame.props["LumaMax"] < 18.875 * 2 ** (scene_detection_bits - 8)
 
-            if scene_detection_scenecut or (luma_scenecut and not luma_scenecut_prev):
-                diffs[current_frame] = frame.props["LumaDiff"] + 1.0
+            if luma_scenecut and not luma_scenecut_prev:
+                diffs[current_frame] = frame.props["LumaDiff"] + 1.5
             else:
-                diffs[current_frame] = frame.props["LumaDiff"]
+                diffs[current_frame] = frame.props["LumaDiff"] + scene_detection_scenecut
+                
             luma_scenecut_prev = luma_scenecut
-        print(f"Frame {current_frame} / Scene detection complete")
+        print(f"Frame {current_frame} / Scene detection complete / {current_frame / (time() - start):.02f} fps")
 
         great_diffs = diffs.copy()
         great_diffs[great_diffs < 1.0] = 0
