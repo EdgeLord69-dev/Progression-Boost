@@ -19,7 +19,7 @@
 import argparse
 from collections.abc import Callable
 from functools import partial
-from itertools import chain, islice
+from itertools import islice
 import json
 import numpy as np
 from pathlib import Path
@@ -45,6 +45,7 @@ if testing_input_file is None:
 zones_file = args.output_zones
 scenes_file = args.output_scenes
 if not zones_file and not scenes_file:
+    parser.print_usage()
     print("Progression Boost: error: at least one of the following arguments is required: -o/--output-zones, --output-scenes")
     raise SystemExit(2)
 temp_dir = args.temp
@@ -657,9 +658,6 @@ if scene_detection_method == "av1an":
         scenes = json.load(scenes_f)
 
 elif scene_detection_method == "vapoursynth":
-    scene_detection_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
-    scene_detection_rjust = lambda frame: str(frame).rjust(scene_detection_rjust_digits.astype(int))
-
     if not testing_resume or not scene_detection_scenes_file.exists():
         assert scene_detection_extra_split >= scene_detection_min_scene_len * 2, "`scene_detection_method` `vapoursynth` does not support `scene_detection_extra_split` to be smaller than 2 times `scene_detection_min_scene_len`."
     
@@ -679,6 +677,9 @@ elif scene_detection_method == "vapoursynth":
                 scene_detection_clip = scene_detection_clip.scxvid.Scxvid()
         except NameError:
             assert False, "You need to select a `scene_detection_vapoursynth_method` to use `scene_detection_method` `vapoursynth`. Please check your config inside `Progression-Boost.py`."
+            
+        scene_detection_rjust_digits = np.floor(np.log10(scene_detection_clip.num_frames)) + 1
+        scene_detection_rjust = lambda frame: str(frame).rjust(scene_detection_rjust_digits.astype(int))
         
         scenes = {}
         scenes["frames"] = scene_detection_clip.num_frames
