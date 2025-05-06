@@ -194,7 +194,7 @@ final_parameters_reset = False
 # Specify the desired scene length for scene detection. The result from
 # this scene detection pass will be used both for test encodes and the
 # final encodes.
-scene_detection_extra_split = 240
+scene_detection_extra_split = 264
 scene_detection_min_scene_len = 12
 # The next setting is only used if WWXD is selected as the scene
 # detection method in the next section.
@@ -652,7 +652,7 @@ elif scene_detection_method == "vapoursynth":
         diffs[0] = 1.0
         luma_scenecut_prev = True
         def scene_detection_split_scene(great_diffs, diffs, start_frame, end_frame):
-            print(f"Frame [{scene_detection_rjust(start_frame)}:{scene_detection_rjust(end_frame)}] / Dividing scenes", end="\r")
+            print(f"Frame [{scene_detection_rjust(start_frame)}:{scene_detection_rjust(end_frame)}] / Creating scenes", end="\r")
 
             if end_frame - start_frame <= scene_detection_target_split or \
                end_frame - start_frame < 2 * scene_detection_min_scene_len:
@@ -686,14 +686,35 @@ elif scene_detection_method == "vapoursynth":
                                scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
 
             else: # end_frame - start_frame > scene_detection_extra_split
-                diffs_sort = np.argsort(diffs, stable=True)[::-1]
-
-                for current_frame in diffs_sort:
+                for current_frame in great_diffs_sort:
+                    if great_diffs[current_frame] < 1.0:
+                        break
+                    if (current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len) and \
+                       np.ceil((current_frame - start_frame) / scene_detection_extra_split).astype(int) + \
+                       np.ceil((end_frame - current_frame) / scene_detection_extra_split).astype(int) <= \
+                       np.ceil((end_frame - start_frame) / scene_detection_extra_split + 0.1).astype(int):
+                        return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
+                               scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
+                               
+                for current_frame in great_diffs_sort:
+                    if great_diffs[current_frame] < 1.0:
+                        break
                     if current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len:
                         return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
                                scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
 
+                diffs_sort = np.argsort(diffs, stable=True)[::-1]
+
+                for current_frame in diffs_sort:
+                    if (current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len) and \
+                       np.ceil((current_frame - start_frame) / scene_detection_extra_split).astype(int) + \
+                       np.ceil((end_frame - current_frame) / scene_detection_extra_split).astype(int) <= \
+                       np.ceil((end_frame - start_frame) / scene_detection_extra_split).astype(int):
+                        return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
+                               scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
+
             assert False, "This indicates a bug in the original code. Please report this to the repository including this error message in full."
+
         for current_frame, frame in islice(enumerate(scene_detection_clip.frames(backlog=60)), 1, None):
             print(f"Frame {current_frame} / Detecting scenes", end="\r")
 
@@ -707,12 +728,14 @@ elif scene_detection_method == "vapoursynth":
             else:
                 diffs[current_frame] = frame.props["LumaDiff"]
             luma_scenecut_prev = luma_scenecut
+        print(f"Frame {current_frame} / Scene detection complete")
 
         great_diffs = diffs.copy()
         great_diffs[great_diffs < 1.0] = 0
         start_frames = scene_detection_split_scene(great_diffs, diffs, 0, len(diffs)) + [scene_detection_clip.num_frames]
         for i in range(len(start_frames) - 1):
             scenes["scenes"].append({"start_frame": int(start_frames[i]), "end_frame": int(start_frames[i + 1]), "zone_overrides": None})
+        print(f"Frame [{scene_detection_rjust(start_frames[i])}:{scene_detection_rjust(start_frames[i + 1])}] / Scene creation complete")
     
         with scene_detection_scenes_file.open("w") as scenes_f:
             json.dump(scenes, scenes_f)
@@ -767,7 +790,7 @@ metric_frame_rjust = lambda frame: str(frame).rjust(metric_frame_rjust_digits.as
 metric_scene_frame_print = lambda scene, start_frame, end_frame: f"Scene {metric_scene_rjust(scene)} Frame [{metric_frame_rjust(start_frame)}:{metric_frame_rjust(end_frame)}]"
 
 for i, scene in enumerate(scenes["scenes"]):
-    print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Calculating", end="\r")
+    print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Calculating boost", end="\r")
     printing = False
 
     quantisers = np.empty((len(testing_crfs),), dtype=float)
@@ -852,3 +875,4 @@ if zones_file:
 if scenes_file:
     with scenes_file.open("w") as scenes_f:
         json.dump(scenes, scenes_f)
+print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Boosting complete", end="\r")
