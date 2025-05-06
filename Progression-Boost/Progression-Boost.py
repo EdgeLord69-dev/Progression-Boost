@@ -905,4 +905,4 @@ if zones_file:
 if scenes_file:
     with scenes_file.open("w") as scenes_f:
         json.dump(scenes, scenes_f)
-print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Boosting complete", end="\r")
+print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Boosting complete")
