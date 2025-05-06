@@ -62,6 +62,7 @@ if not input_file:
     parser.print_usage()
     print("VapourSynth Scene Detection: error: the following arguments are required: -i/--input")
     raise SystemExit(2)
+scene_detection_colour_range = args.input_colour_range
 scene_detection_vapoursynth_method = args.method
 scene_detection_extra_split = args.extra_split
 scene_detection_min_scene_len = args.min_scene_len
@@ -188,9 +189,12 @@ if True:
                 scene_detection_scenecut = (frame.props["Scenechange"] == 1) + (frame.props["_SceneChangePrev"] == 1) / 2
             else:
                 assert False, "Invalid `scene_detection_vapoursynth_method`. Please check your config inside `Progression-Boost.py`."
-            # Modify here to 251.125 and 3.875 if your source has full instead of limited colour range
-            luma_scenecut = frame.props["LumaMin"] > 231.125 * 2 ** (scene_detection_bits - 8) or \
-                            frame.props["LumaMax"] < 19.875 * 2 ** (scene_detection_bits - 8)
+            if scene_detection_colour_range == "limited"
+                luma_scenecut = frame.props["LumaMin"] > 231.125 * 2 ** (scene_detection_bits - 8) or \
+                                frame.props["LumaMax"] < 19.875 * 2 ** (scene_detection_bits - 8)
+            else:
+                luma_scenecut = frame.props["LumaMin"] > 251.125 * 2 ** (scene_detection_bits - 8) or \
+                                frame.props["LumaMax"] < 3.875 * 2 ** (scene_detection_bits - 8)
 
             if luma_scenecut and not luma_scenecut_prev:
                 diffs[current_frame] = frame.props["LumaDiff"] + 2.0
