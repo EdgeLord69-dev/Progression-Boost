@@ -216,16 +216,31 @@ scene_detection_target_split = 60
 # In the grand scheme of scene detection, av1an is the more universal
 # option for scene detection. It works well in most conditions.
 #
-# `--sc-method fast` is often preferred over `--sc-method standard`.
-# The reason is that `--sc-method standard` will sometimes place
-# scenecut not at the actual frame the scene changes, but at a frame
-# optimised for encoder to reuse information.
+# Depending on the situations, you may want to use `--sc-method fast`
+# or `--sc-method standard`.
+#
+# The reason `--sc-method fast` is often preferred over
+# `--sc-method standard` is that `--sc-method standard` will sometimes
+# place scenecut not at the actual frame the scene changes, but at a
+# frame optimised for encoder to reuse information.
 # `--sc-method fast` is preferred because, first, the benefit from this
 # optimisation is minimum, and second, it means Progression Boost
 # (or any other boosting scripts) will be much less accurate as a
 # result, since scenes with such optimisation can contain frames from
 # nearby scenes, which said frames will then certainly be overboosted
 # or underboosted.
+#
+# However, in sections that's challenging for scene detection, such as
+# a continous cut, many times the length of
+# `scene_detection_extra_split`, featuring lots of movements but no
+# actual scenecuts, or sections with a lot of very fancy transition
+# effects between cuts, `--sc-method standard` should be preferred. The
+# additional optimisations work very well for these complex situations.
+#
+# You should use `--sc-method standard` if you anime contains sections
+# challenging for scene detection mentioned above. Otherwise,
+# `--sc-method fast` or WWXD or SCXVID based detection introduced below
+# should always be preferred.
 # 
 # If you want to use av1an for scene detection, specify the av1an
 # parameters. You need to specify all parameters for an `--sc-only`
@@ -237,27 +252,33 @@ scene_detection_parameters = f"--sc-method fast --chunk-method lsmash"
 scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_split} --min-scene-len {scene_detection_min_scene_len}"
 
 # av1an is mostly good, except for one single problem: av1an often
-# prefers to place the keyframe at the start of a series of still
-# frames. This preference even takes priority over placing keyframes at
-# actual scene changes. The problem is that these few frames have
-# movements and are located at the very end of the previous scene after
-# an actual scene changes, which is why they will often be encoded very
-# horrendously. Compared to av1an, WWXD or SCXVID is more reliable in
-# this matter, and would have less issues like this.
+# prefers to place the keyframe at the start of a series of still,
+# unmoving frames. This preference even takes priority over placing
+# keyframes at actual scene changes. For most works, it's common to
+# find cuts where the character will make some movements at the very
+# start of a cut, before they stops moving and starts talking. Using
+# av1an, these few frames will be allocated to the previous scenes.
+# These are a low number of frames, with movements, and after an actual
+# scene changes, but placed at the very end of previous scene, which is
+# why they will often be encoded horrendously. Compared to av1an, WWXD
+# or Scxvid is more reliable in this matter, and would have less issues
+# like this.
 #
-# The downside of WWXD or SCXVID is that although it works well for a
-# regular show, it really struggles in sections challenging for scene
-# detection. It will mark either too much or too little keyframes. This
-# is largely alleviated by the additional scene detection logic in this
-# script.
+# Similar to `--sc-method fast` against `--sc-method standard`, WWXD
+# and Scxvid struggles in sections challenging for scene detection. It
+# will mark either too much or too few keyframes. This is largely
+# alleviated by the additional scene detection logic in this script.
 #
-# In general, WWXD or SCXVID is preferred over av1an on sources without
-# any sections that are very challenging for scene detection, or - not
-# and, or - for high quality encodes that want even the worst frames to
-# be good.
+# In general, you should always use WWXD or Scxvid if you cares about
+# the worst frames. For encodes targeting a good mean quality, if there
+# are no sections difficult for scene detection, WWXD or Scxvid is
+# preferred over `--sc-method fast`. If there are such sections, as
+# explained above when introducing av1an-based scene detection,
+# `--sc-method standard` should be preferred.
 # 
 # Progression Boost provides two options for VapourSynth-based scene
-# detection, `wwxd` and `wwxd_scxvid`. `wwxd_scxvid` is preferred
+# detection, `wwxd` and `wwxd_scxvid`. `wwxd_scxvid` is slightly safer
+# than `wwxd` alone, but it is slower. You should use `wwxd_scxvid`
 # unless it's too slow, which `wwxd` can be then used. If you want to
 # use VapourSynth-based scene detection, comment the lines above for
 # av1an, uncomment the first line below for VapourSynth, and then
@@ -748,12 +769,12 @@ elif scene_detection_method == "vapoursynth":
                 scene_detection_scenecut = (frame.props["Scenechange"] == 1) + (frame.props["_SceneChangePrev"] == 1) / 2
             else:
                 assert False, "Invalid `scene_detection_vapoursynth_method`. Please check your config inside `Progression-Boost.py`."
-            # Modify here to 252.125 and 2.875 if your source has full instead of limited colour range
-            luma_scenecut = frame.props["LumaMin"] > 232.125 * 2 ** (scene_detection_bits - 8) or \
-                            frame.props["LumaMax"] < 18.875 * 2 ** (scene_detection_bits - 8)
+            # Modify here to 251.125 and 3.875 if your source has full instead of limited colour range
+            luma_scenecut = frame.props["LumaMin"] > 231.125 * 2 ** (scene_detection_bits - 8) or \
+                            frame.props["LumaMax"] < 19.875 * 2 ** (scene_detection_bits - 8)
 
             if luma_scenecut and not luma_scenecut_prev:
-                diffs[current_frame] = frame.props["LumaDiff"] + 1.5
+                diffs[current_frame] = frame.props["LumaDiff"] + 2.0
             else:
                 diffs[current_frame] = frame.props["LumaDiff"] + scene_detection_scenecut
                 
