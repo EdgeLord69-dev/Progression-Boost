@@ -63,6 +63,18 @@ To use the Dispatch Server:
 
 ## VapourSynth Scene Detection
 
+### Introduction
+
 This is an excerpt from [Progression Boost](#progression-boost). Use this script to try out WWXD and Scxvid for av1an encoding.  
 
+### Usage
+
 Check the [`requirements.txt`](VapourSynth-Scene-Detection/requirements.txt). Download the [script](VapourSynth-Scene-Detection/VapourSynth-Scene-Detection.py) and run `python VapourSynth-Scene-Detection.py --help` to view the help and the guide.  
+
+### Guide
+
+In the grand scheme of scene detection, av1an `--sc-method standard` is the more universal option for scene detection. It has multiple unique optimisations and is tested to work well in most conditions.
+
+However, it has one big problem: av1an often prefers to place the keyframe at the start of a series of still, unmoving frames. This preference even takes priority over placing keyframes at actual scene changes. For most works, it's common to find cuts where the character will make some movements at the very start of a cut, before they stops moving and starts talking. Using av1an, these few frames will be allocated to the previous scenes. These are a low number of frames, with movements, and after an actual scene changes, but placed at the very end of previous scene, which is why they will often be encoded horrendously. Compared to av1an, WWXD or Scxvid is more reliable in this matter, and would have less issues like this.  
+
+A caveat is that WWXD and Scxvid struggles greatly in sections challenging for scene detection such as a continous cut, many times the length of `scene_detection_extra_split`, featuring lots of movements but no actual scenecuts, or sections with a lot of very fancy transition effects between cuts. WWXD and Scxvid will mark either too much or too few keyframes. This is largely alleviated by the additional scene detection logic in this script, but you should still prefer av1an `--sc-method standard` in sources with such sections.  
