@@ -110,7 +110,7 @@ metric_verbose = args.verbose
 # targeting lower quality targets. Comment the lines above and
 # uncomment the lines below if you want to make a linear model for
 # Butteraugli 3Norm targeting lower `--crf`s.
-testing_crfs = np.sort([12.00, 21.00])
+testing_crfs = np.sort([12.00, 20.00])
 
 # Please keep this list sorted and only enter `--crf` values that are
 # multiples of 0.25. Progression Boost will break if this requirement
@@ -146,7 +146,7 @@ testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 6 --fast-deco
 # If you're using the default `testing_crfs` for Butteraugli 3Norm,
 # comment the line above for SSIMU2 and uncomment the lines below.
 final_min_crf = 6.00
-final_max_crf = 32.00
+final_max_crf = 30.00
 # ---------------------------------------------------------------------
 # Do you want a real constant quality, or do you just want a small
 # boost, not wishing to throw a lot of bitrates on the most demanding
