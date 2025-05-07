@@ -196,7 +196,7 @@ final_parameters_reset = False
 # Specify the desired scene length for scene detection. The result from
 # this scene detection pass will be used both for test encodes and the
 # final encodes.
-scene_detection_extra_split = 264
+scene_detection_extra_split = 192
 scene_detection_min_scene_len = 12
 # The next setting is only used if WWXD or SCXVID via VapourSynth is
 # selected as the scene detection method in the next section.
