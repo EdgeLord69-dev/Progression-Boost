@@ -361,8 +361,8 @@ metric_max_every = 12
 def metric_process(clip: vs.VideoNode) -> vs.VideoNode:
     every = clip.num_frames // metric_min_num_frames
     every = np.max([1, np.min([metric_max_every, every])])
-    start = clip.num_frames % every
-    clip = clip[start::every]
+    clip = clip[:np.ceil(clip.num_frames // every / 2).astype(int) * every:every] + \
+           clip[-np.floor(clip.num_frames // every / 2).astype(int) * every + every - 1::every]
 
 # If you want higher speed calculating metrics, here is a hack. What
 # about cropping the clip from 1080p to 900p or 720p? This is tested to
