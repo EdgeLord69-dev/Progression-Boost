@@ -156,7 +156,10 @@ final_max_crf = 48.00
 # scenes? For targeting constant quality, you don't need to modify
 # anything here.
 def final_dynamic_crf(crf: float) -> float:
-    return crf
+    if crf > 30:
+        return 30 + (crf - 30) ** 0.96
+    else:
+        return crf
 
 # If you want to dampen the most boosted scenes, you can try to
 # uncomment the lines below or write your own method.
