@@ -13,7 +13,7 @@ Progression Boost is very customisable. For this reason, we offer multiple prese
 | Preset | Quality Target Explained |
 | :-- | :-- |
 | [Butteraugli-90th-Percentile](../Preset-Butteraugli-3Norm-90th-Percentile/Progression-Boost/Progression-Boost.py) | Targeting very high quality, focusing on getting even the worst frame good. |
-| [SSIMU2-20th-Percentile](../master/Progression-Boost/Progression-Boost.py) | Targeting high to very high quality, focusing on getting bad frames good. |
+| [SSIMU2-15th-Percentile](../master/Progression-Boost/Progression-Boost.py) | Targeting high to very high quality, focusing on getting bad frames good. |
 | [SSIMU2-Harmonic-Mean](../Preset-SSIMU2-Harmonic-Mean/Progression-Boost/Progression-Boost.py) | Targeting from low to high quality, focusing on quality consistency. |
 | [Butteraugli-Root-Mean-Cube](../Preset-Butteraugli-3Norm-Root-Mean-Cube/Progression-Boost/Progression-Boost.py) | Targeting medium-high to high quality, focusing on quality consistency. |
 
