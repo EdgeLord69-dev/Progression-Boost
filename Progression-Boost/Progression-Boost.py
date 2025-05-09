@@ -22,7 +22,10 @@ from functools import partial
 from itertools import islice
 import json
 import numpy as np
+from numpy.random import default_rng
+import os
 from pathlib import Path
+import platform
 from scipy.optimize import Bounds, minimize
 import subprocess
 from time import time
@@ -311,58 +314,15 @@ testing_av1an_parameters += " -y"
 # ---------------------------------------------------------------------
 # Once the test encodes finish, Progression Boost will start
 # calculating metric for each scenes.
-# If you want to do some filtering before calculating SSIMU2, you can
-# modify the following lines. Otherwise you can leave it unchanged.
+# If you want to do some filtering before calculating, you can modify
+# the following lines. Otherwise you can leave it unchanged.
 metric_reference = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
 # ---------------------------------------------------------------------
-# When calculating metric, we don't need to calculate it for every
-# single frame. It's often the case that most frame in the same scene
-# are similar to each other.
-# Progression Boost by default uses the most basic method of selecting
-# one frame every few frames. Use this variable to specify the minimum
-# number of frames to be selected and calculated for each scene.
-#
-# As an example, using the default `12`:
-# * When the length of the scene is less than 12 frames, all frames
-#   will be calculated.
-# * When the length of the scene is between 12 and 23 frames, it's also
-#   the case that every frame will be calculated because otherwise
-#   skipping half of the frames will result in less than 12 frames
-#   being calculated.
-# * When the length of the scene is between 24 and 35 frames, every
-#   other frame will be calculated. In total, 12 to 17 frames will be
-#   calculated.
-# 
-# Depending on your encoding target, you may want to increase or
-# decrease this number. Increasing this number means edge cases would
-# have a bigger chance to be included. This is beneficial if you're
-# focusing on bad frames. However, if you focus is on getting a good
-# mean quality, you should be able to reduce this number a lot.
-#
-# If you want to not skip any frames in scenes of any length, set this
-# to a vale higher than `--extra-split` specified in
-# `scene_detection_parameters`.
-metric_min_num_frames = 12
-# ---------------------------------------------------------------------
-# For very long scenes, the logic of `metric_min_num_frames` above
-# might end up skipping too many frames.
-# As an example, using the default `12` for `metric_min_num_frames` on
-# a 360-frame scene, metric will only be calculated every 30 frames.
-# To not skip too many frames at a time, specify a maximum `--every`.
-metric_max_every = 12
-# ---------------------------------------------------------------------
-# Progression Boost by default uses the aforementioned basic method of
-# selecting one frame every few frames. If you are good with this
-# method, you don't need to modify anything here. If you want to use a
-# different method, you can implement it here.
-#
-# This function will be called for the reference clip and the encode
-# clip individually.
-def metric_process(clip: vs.VideoNode) -> vs.VideoNode:
-    every = clip.num_frames // metric_min_num_frames
-    every = np.max([1, np.min([metric_max_every, every])])
-    clip = clip[:np.ceil(clip.num_frames // every / 2).astype(int) * every:every] + \
-           clip[-np.floor(clip.num_frames // every / 2).astype(int) * every + every - 1::every]
+# Additionally, you can also apply some filters to both the source and
+# the encoded clip before calculating metric. By default, no processing
+# is performed.
+def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
+    return clips
 
 # If you want higher speed calculating metrics, here is a hack. What
 # about cropping the clip from 1080p to 900p or 720p? This is tested to
@@ -371,11 +331,56 @@ def metric_process(clip: vs.VideoNode) -> vs.VideoNode:
 # are cropping away outer edges of the screen, for most anime, we will
 # have proportionally more characters than backgrounds in the cropped
 # compare. This may not may not be preferrable. If you want to enable
-# cropping, uncomment the following line to crop the clip to 900p
-# before comparing.
-#     clip = clip.std.Crop(left=160, right=160, top=90, bottom=90)
-
-    return clip
+# cropping, comment the lines above and uncomment the lines below to
+# crop the clip to 900p before comparing.
+# def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
+#     for i in range(len(clips)):
+#         clips[i] = clips[i].std.Crop(left=160, right=160, top=90, bottom=90)
+#     return clips
+# ---------------------------------------------------------------------
+# When calculating metric, we don't need to calculate it for every
+# single frame. It's very common for anime to have 1 frame of animation
+# every 2 to 3 frames. It's not only meaningless trying to calculate
+# repeating frames, it's actually dangerous because it will dilute the
+# data and make the few bad frames less arithmetically significant.
+#
+# We will first pick a few frames with the highest diffs. These are the
+# frames that are most likely to be bad. However, the fact that this
+# disproportionately picks the bad frames means it would not be very
+# representative if you're using a mean-based method to summarise the
+# data later. Keep the number of frames picked here at a modest amount
+# if you're using a mean-based method.
+metric_highest_diff_frames = 3
+# We will avoid selecting frames too close to each other to avoid
+# picking all the frames from, let's say, a fade at the start or the
+# end of the scene.
+metric_highest_diff_min_separation = 12
+#
+# Then we will separate the frames into two brackets at 2 times MAD but
+# based on the 40th percentile instead of mean value. The lower bracket
+# are most likely be repeating frames that are the same as their
+# previous frames, and the upper bracket are most likely to be frames
+# we want to measure.
+metric_upper_diff_bracket_frames = 6
+metric_lower_diff_bracket_frames = 3
+# We select frames from the two brackets randomly, but we want to avoid
+# picking a frame in the lower bracket right after a frame from the
+# upper bracket, because these two frames are most likely exactly the
+# same.
+metric_lower_diff_bracket_min_separation = 2
+# If there are not enough frames in the upper bracket to select, we
+# will select some more frames in the lower diff bracket. If the number
+# of frames selected in the upper diff bracket is smaller than this
+# number, we will select additional frames in the lower bracket until
+# this number is reached.
+metric_upper_diff_bracket_fallback_frames = metric_upper_diff_bracket_frames // 2
+#
+# All these diff sorting and selection excludes the first frame of the
+# scene since the diff data of the first frame is compared against the
+# last frame from the previous scene and is irrelevant. In addition,
+# the first frame as the keyframe often has great quality. Do you want
+# to always include the first frame in metric calculation?
+metric_first_frame = 1
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # What metric do you want to use? Are you hipping, or are you zipping?
@@ -639,8 +644,12 @@ metric_target = 0.520
 # ---------------------------------------------------------------------
 
 
+if platform.system() == "Windows":
+    os.system("")
+
 # Scene dectection
 scene_detection_scenes_file = temp_dir.joinpath("scenes-detection.scenes.json")
+scene_detection_diffs_file = temp_dir.joinpath("scenes-detection.diff.txt")
 
 if scene_detection_method == "av1an":
     if not testing_resume or not scene_detection_scenes_file.exists():
@@ -658,8 +667,21 @@ if scene_detection_method == "av1an":
     with scene_detection_scenes_file.open("r") as scenes_f:
         scenes = json.load(scenes_f)
 
+    if not testing_resume or not scene_detection_diffs_file.exists():
+        scene_detection_clip = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
+        scene_detection_bits = scene_detection_clip.format.bits_per_sample
+        scene_detection_clip = scene_detection_clip.std.PlaneStats(scene_detection_clip[0] + scene_detection_clip, plane=0, prop="Luma")
+        
+        scene_detection_diffs = np.empty((scene_detection_clip.num_frames,), dtype=float)
+        for current_frame, frame in enumerate(scene_detection_clip.frames(backlog=48)):
+            scene_detection_diffs[current_frame] = frame.props["LumaDiff"]
+
+        np.savetxt(scene_detection_diffs_file, scene_detection_diffs, fmt="%.9f")
+    else:
+        scene_detection_diffs = np.loadtxt(scene_detection_diffs_file)
+
 elif scene_detection_method == "vapoursynth":
-    if not testing_resume or not scene_detection_scenes_file.exists():
+    if not testing_resume or not scene_detection_scenes_file.exists() or not scene_detection_diffs_file.exists():
         assert scene_detection_extra_split >= scene_detection_min_scene_len * 2, "`scene_detection_method` `vapoursynth` does not support `scene_detection_extra_split` to be smaller than 2 times `scene_detection_min_scene_len`."
     
         scene_detection_clip = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
@@ -688,9 +710,11 @@ elif scene_detection_method == "vapoursynth":
 
         diffs = np.empty((scene_detection_clip.num_frames,), dtype=float)
         diffs[0] = 1.0
+        scene_detection_diffs = np.empty((scene_detection_clip.num_frames,), dtype=float)
+        scene_detection_diffs[0] = 1.0
         luma_scenecut_prev = True
         def scene_detection_split_scene(great_diffs, diffs, start_frame, end_frame):
-            print(f"Frame [{scene_detection_rjust(start_frame)}:{scene_detection_rjust(end_frame)}] / Creating scenes", end="\r")
+            print(f"\033[KFrame [{scene_detection_rjust(start_frame)}:{scene_detection_rjust(end_frame)}] / Creating scenes", end="\r")
 
             if end_frame - start_frame <= scene_detection_target_split or \
                end_frame - start_frame < 2 * scene_detection_min_scene_len:
@@ -761,9 +785,9 @@ elif scene_detection_method == "vapoursynth":
 
             assert False, "This indicates a bug in the original code. Please report this to the repository including this error message in full."
 
-        start = time()
+        start = time() - 0.000001
         for current_frame, frame in islice(enumerate(scene_detection_clip.frames(backlog=48)), 1, None):
-            print(f"Frame {current_frame} / Detecting scenes / {current_frame / (time() - start):.02f} fps", end="\r")
+            print(f"\033[KFrame {current_frame} / Detecting scenes / {current_frame / (time() - start):.02f} fps", end="\r")
 
             if scene_detection_vapoursynth_method == "wwxd":
                 scene_detection_scenecut = frame.props["Scenechange"] == 1
@@ -779,23 +803,26 @@ elif scene_detection_method == "vapoursynth":
                 diffs[current_frame] = frame.props["LumaDiff"] + 2.0
             else:
                 diffs[current_frame] = frame.props["LumaDiff"] + scene_detection_scenecut
+            scene_detection_diffs[current_frame] = frame.props["LumaDiff"]
                 
             luma_scenecut_prev = luma_scenecut
-        print(f"Frame {current_frame} / Scene detection complete / {current_frame / (time() - start):.02f} fps")
+        print(f"\033[KFrame {current_frame} / Scene detection complete / {current_frame / (time() - start):.02f} fps")
 
         great_diffs = diffs.copy()
         great_diffs[great_diffs < 1.0] = 0
         start_frames = scene_detection_split_scene(great_diffs, diffs, 0, len(diffs)) + [scene_detection_clip.num_frames]
         for i in range(len(start_frames) - 1):
             scenes["scenes"].append({"start_frame": int(start_frames[i]), "end_frame": int(start_frames[i + 1]), "zone_overrides": None})
-        print(f"Frame [{scene_detection_rjust(start_frames[i])}:{scene_detection_rjust(start_frames[i + 1])}] / Scene creation complete")
+        print(f"\033[KFrame [{scene_detection_rjust(start_frames[i])}:{scene_detection_rjust(start_frames[i + 1])}] / Scene creation complete")
     
         with scene_detection_scenes_file.open("w") as scenes_f:
             json.dump(scenes, scenes_f)
+        np.savetxt(scene_detection_diffs_file, scene_detection_diffs, fmt="%.9f")
 
     else:
         with scene_detection_scenes_file.open("r") as scenes_f:
             scenes = json.load(scenes_f)
+        scene_detection_diffs = np.loadtxt(scene_detection_diffs_file)
 
 else:
     assert False, "Invalid `scene_detection_method`."
@@ -826,9 +853,6 @@ for n, crf in enumerate(testing_crfs):
 
 
 # Metric
-metric_encodes = [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
-                                           cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
-
 if zones_file:
     zones_f = zones_file.open("w")
 
@@ -842,27 +866,102 @@ metric_frame_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
 metric_frame_rjust = lambda frame: str(frame).rjust(metric_frame_rjust_digits.astype(int))
 metric_scene_frame_print = lambda scene, start_frame, end_frame: f"Scene {metric_scene_rjust(scene)} Frame [{metric_frame_rjust(start_frame)}:{metric_frame_rjust(end_frame)}]"
 
+metric_clips = [metric_reference] + \
+               [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
+                                         cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
+metric_clips = metric_process(metric_clips)
+
+start = time() - 0.000001
 for i, scene in enumerate(scenes["scenes"]):
-    print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Calculating boost", end="\r")
+    print(f"\033[K{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Calculating boost / {i / (time() - start):.02f} scenes per second", end="\r")
     printing = False
 
+    rng = default_rng(1188246) # Guess what is this number. It's the easiest cipher out there.
+
+    # These frames are offset from `scene["start_frame"] + 1` and that's why they are offfset, not offset
+    offfset_frames = []
+    
+    scene_diffs = scene_detection_diffs[scene["start_frame"] + 1:scene["end_frame"]]
+    scene_diffs_sort = np.argsort(scene_diffs)[::-1]
+    picked = 0
+    for offfset_frame in scene_diffs_sort:
+        if picked >= metric_highest_diff_frames:
+            break
+        to_continue = False
+        for existing_frame in offfset_frames:
+            if np.abs(existing_frame - offfset_frame) < metric_highest_diff_min_separation:
+                to_continue = True
+                break
+        if to_continue:
+            continue
+        offfset_frames.append(offfset_frame)
+        picked += 1
+
+    scene_diffs_percentile = np.percentile(scene_diffs, 40, method="linear")
+    scene_diffs_percentile_absolute_deviation = np.percentile(np.abs(scene_diffs - scene_diffs_percentile), 40, method="linear")
+    scene_diffs_upper_bracket_ = np.argwhere(scene_diffs > scene_diffs_percentile + 5 * scene_diffs_percentile_absolute_deviation).reshape((-1))
+    scene_diffs_lower_bracket_ = np.argwhere(scene_diffs <= scene_diffs_percentile + 5 * scene_diffs_percentile_absolute_deviation).reshape((-1))
+    scene_diffs_upper_bracket = np.empty_like(scene_diffs_upper_bracket_)
+    rng.shuffle((scene_diffs_upper_bracket__ := scene_diffs_upper_bracket_[:np.ceil(scene_diffs_upper_bracket_.shape[0] / 2).astype(int)]))
+    scene_diffs_upper_bracket[::2] = scene_diffs_upper_bracket__
+    rng.shuffle((scene_diffs_upper_bracket__ := scene_diffs_upper_bracket_[-np.floor(scene_diffs_upper_bracket_.shape[0] / 2).astype(int):]))
+    scene_diffs_upper_bracket[1::2] =scene_diffs_upper_bracket__
+    scene_diffs_lower_bracket = np.empty_like(scene_diffs_lower_bracket_)
+    rng.shuffle((scene_diffs_lower_bracket__ := scene_diffs_lower_bracket_[:np.ceil(scene_diffs_lower_bracket_.shape[0] / 2).astype(int)]))
+    scene_diffs_lower_bracket[::2] = scene_diffs_lower_bracket__
+    rng.shuffle((scene_diffs_lower_bracket__ := scene_diffs_lower_bracket_[-np.floor(scene_diffs_lower_bracket_.shape[0] / 2).astype(int):]))
+    scene_diffs_lower_bracket[1::2] = scene_diffs_lower_bracket__
+
+    picked = 0
+    for offfset_frame in scene_diffs_upper_bracket:
+        if picked >= metric_upper_diff_bracket_frames:
+            break
+        if offfset_frame in offfset_frames:
+            continue
+        offfset_frames.append(offfset_frame)
+        picked += 1
+    
+    if picked < metric_upper_diff_bracket_fallback_frames:
+        to_pick = metric_lower_diff_bracket_frames + metric_upper_diff_bracket_fallback_frames - picked
+    else:
+        to_pick = metric_lower_diff_bracket_frames
+
+    if metric_first_frame >= 1:
+        offfset_frames.append(-1)
+
+    picked = 0
+    for offfset_frame in scene_diffs_lower_bracket:
+        if picked >= to_pick:
+            break
+        to_continue = False
+        for existing_frame in offfset_frames:
+            if np.abs(existing_frame - offfset_frame) < metric_lower_diff_bracket_min_separation:
+                to_continue = True
+                break
+        if to_continue:
+            continue
+        offfset_frames.append(offfset_frame)
+        picked += 1
+        
+    frames = np.sort(offfset_frames) + (scene["start_frame"] + 1)
+
+    clips = []
+    for metric_clip in metric_clips:
+        clip = metric_clip[int(frames[0])]
+        for frame in frames:
+            clip += metric_clip[int(frame)]
+        clips.append(clip)
+        
     quantisers = np.empty((len(testing_crfs),), dtype=float)
-
-    reference = metric_reference[scene["start_frame"]:scene["end_frame"]]
-    reference = metric_process(reference)
-    for n, crf in enumerate(testing_crfs):
-        encode = metric_encodes[n][scene["start_frame"]:scene["end_frame"]]
-        encode = metric_process(encode)
-
-        scores = np.array([metric_metric(frame) for frame in metric_calculate(reference, encode).frames()])
-
+    for n in range(len(testing_crfs)):
+        scores = np.array([metric_metric(frame) for frame in metric_calculate(clips[0], clips[n + 1]).frames()])
         quantisers[n] = metric_summarise(scores)
 
     try:
         model = metric_model(testing_crfs, quantisers)
     except UnreliableModelError as e:
         if not np.all(metric_better_metric(quantisers, metric_target)):
-            print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Unreliable model / {str(e)}")
+            print(f"\033[K{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Unreliable model / {str(e)}")
             printing = True
         model = e.model
 
@@ -892,7 +991,7 @@ for i, scene in enumerate(scenes["scenes"]):
             else:
                 # The last item in the iteration is metric_iterate_crfs[n-1], and from outer loop we know that at that crf the predicted quality is higher than the target.
                 # The only case that this else clause will be reached is at n == 0, that even at metric_iterate_crfs[-1], or final_min_crf, the predicted quality is still below the target the target.
-                print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Potential low quality scene / The predicted quality at `final_min_crf` is {value:.3f}, which is worse than `metric_target` at {metric_target:.3f}")
+                print(f"\033[K{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Potential low quality scene / The predicted quality at `final_min_crf` is {value:.3f}, which is worse than `metric_target` at {metric_target:.3f}")
                 printing = True
                 final_crf = metric_iterate_crfs[n-1]
             
@@ -906,7 +1005,7 @@ for i, scene in enumerate(scenes["scenes"]):
     final_crf = round(final_crf / 0.25) * 0.25
 
     if printing or metric_verbose or final_crf < metric_reporting_crf:
-        print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / OK / Final crf: {final_crf:.2f}")
+        print(f"\033[K{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / OK / Final crf: {final_crf:.2f}")
 
     if zones_file:
         # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
@@ -928,4 +1027,4 @@ if zones_file:
 if scenes_file:
     with scenes_file.open("w") as scenes_f:
         json.dump(scenes, scenes_f)
-print(f"{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Boosting complete")
+print(f"\033[K{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Boost calculation complete / {i / (time() - start):.02f} scenes per second")
