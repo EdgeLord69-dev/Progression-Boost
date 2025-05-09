@@ -354,11 +354,11 @@ def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
 # of the frames you're measuring here. Although do note that this way
 # the percentile you're measuring no longer represents the percentile
 # of the whole scene, but just the percentile of the frames you pick.
-metric_highest_diff_frames = 3
+metric_highest_diff_frames = 6
 # We will avoid selecting frames too close to each other to avoid
 # picking all the frames from, let's say, a fade at the start or the
 # end of the scene.
-metric_highest_diff_min_separation = 12
+metric_highest_diff_min_separation = 6
 #
 # Then we will separate the frames into two brackets at 2 times MAD but
 # based on the 40th percentile instead of mean value. The lower bracket
@@ -370,7 +370,7 @@ metric_highest_diff_min_separation = 12
 # power and you want to be relatively safe, use maybe 10 and 5. If you
 # want to speed up metric calculation, you can try 4 and 2 for these
 # while also reducing `metric_highest_diff_frames` to 2.
-metric_upper_diff_bracket_frames = 6
+metric_upper_diff_bracket_frames = 3
 metric_lower_diff_bracket_frames = 3
 # We select frames from the two brackets randomly, but we want to avoid
 # picking a frame in the lower bracket right after a frame from the
@@ -389,7 +389,7 @@ metric_upper_diff_bracket_fallback_frames = metric_upper_diff_bracket_frames // 
 # last frame from the previous scene and is irrelevant. In addition,
 # the first frame as the keyframe often has great quality. Do you want
 # to always include the first frame in metric calculation?
-metric_first_frame = 1
+metric_first_frame = 0
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # What metric do you want to use? Are you hipping, or are you zipping?
