@@ -429,7 +429,7 @@ metric_better_metric = np.less
 #
 # Specify the `metric_percentile` you want to observe below depending on
 # your desired quality for the encode.
-# metric_percentile = 20
+# metric_percentile = 15
 # def metric_summarise(scores: np.ndarray[float]) -> float:
 #     return np.percentile(scores, metric_percentile, method="median_unbiased")
 
