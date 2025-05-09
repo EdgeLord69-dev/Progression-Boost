@@ -349,7 +349,11 @@ def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
 # disproportionately picks the bad frames means it would not be very
 # representative if you're using a mean-based method to summarise the
 # data later. Keep the number of frames picked here at a modest amount
-# if you're using a mean-based method.
+# if you're using a mean-based method. If you're using a percentile-
+# based method to boost the worst frames, you can consider picking half
+# of the frames you're measuring here. Although do note that this way
+# the percentile you're measuring no longer represents the percentile
+# of the whole scene, but just the percentile of the frames you pick.
 metric_highest_diff_frames = 3
 # We will avoid selecting frames too close to each other to avoid
 # picking all the frames from, let's say, a fade at the start or the
@@ -361,6 +365,11 @@ metric_highest_diff_min_separation = 12
 # are most likely be repeating frames that are the same as their
 # previous frames, and the upper bracket are most likely to be frames
 # we want to measure.
+# A good starting point for a mean-based method is to measure 6 and 3
+# frames respectively from each bracket. If you have the computing
+# power and you want to be relatively safe, use maybe 10 and 5. If you
+# want to speed up metric calculation, you can try 4 and 2 for these
+# while also reducing `metric_highest_diff_frames` to 2.
 metric_upper_diff_bracket_frames = 6
 metric_lower_diff_bracket_frames = 3
 # We select frames from the two brackets randomly, but we want to avoid
