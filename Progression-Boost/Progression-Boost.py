@@ -134,7 +134,7 @@ def testing_dynamic_parameters(crf: float) -> str:
 # for test encode. You need to specify everything other than `--input`,
 # `--output`, `--crf` and the parameters you've set to generate
 # dynamically.
-testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 6 --fast-decode 1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
+testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 7 --fast-decode 1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Config for the target quality to generate the final `--crf` comes
@@ -610,7 +610,7 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
 # quality we're aiming at.
 # Specify the target quality using the variable below.
 #
-# Note that since we are doing faster test encodes with `--preset 6` by
+# Note that since we are doing faster test encodes with `--preset 7` by
 # default, the quality we get from test encodes will be lower than that
 # of the final encode using slower presets. You should account for this
 # when setting the number.
