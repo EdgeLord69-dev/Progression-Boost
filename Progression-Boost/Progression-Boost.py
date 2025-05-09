@@ -220,31 +220,33 @@ scene_detection_target_split = 60
 # In the grand scheme of scene detection, av1an is the more universal
 # option for scene detection. It works well in most conditions.
 #
-# Depending on the situations, you may want to use `--sc-method fast`
-# or `--sc-method standard`.
+# Depending on the situations, you may want to use
+# `--sc-method standard` or `--sc-method fast`.
 #
-# The reason `--sc-method fast` is often preferred over
+# The reason `--sc-method fast` is sometimes preferred over
 # `--sc-method standard` is that `--sc-method standard` will sometimes
 # place scenecut not at the actual frame the scene changes, but at a
 # frame optimised for encoder to reuse information.
 # `--sc-method fast` is preferred because, first, the benefit from this
-# optimisation is minimum, and second, it means Progression Boost
-# (or any other boosting scripts) will be much less accurate as a
-# result, since scenes with such optimisation can contain frames from
-# nearby scenes, which said frames will then certainly be overboosted
-# or underboosted.
+# optimisation is insignificant for most sources, and second, it means
+# Progression Boost (or any other boosting scripts) will be much less
+# accurate as a result, since scenes with such optimisation can contain
+# frames from nearby scenes, which said frames will then certainly be
+# overboosted or underboosted.
 #
 # However, in sections that's challenging for scene detection, such as
-# a continous cut, many times the length of
-# `scene_detection_extra_split`, featuring lots of movements but no
+# a continous cut many times the length of
+# `scene_detection_extra_split` featuring lots of movements but no
 # actual scenecuts, or sections with a lot of very fancy transition
-# effects between cuts, `--sc-method standard` should be preferred. The
-# additional optimisations work very well for these complex situations.
+# effects between cuts, `--sc-method standard` should be always
+# preferred. The aforementioned additional optimisations are very
+# helpful in complex sections and `--sc-method standard` greatly
+# outperforms `--sc-method fast` in sources with such sections.
 #
 # You should use `--sc-method standard` if you anime contains sections
-# challenging for scene detection mentioned above. Otherwise,
-# `--sc-method fast` or WWXD or SCXVID based detection introduced below
-# should always be preferred.
+# challenging for scene detection such as what's mentioned above.
+# Otherwise, `--sc-method fast` or WWXD or SCXVID based detection
+# introduced below should always be preferred.
 # 
 # If you want to use av1an for scene detection, specify the av1an
 # parameters. You need to specify all parameters for an `--sc-only`
@@ -260,18 +262,26 @@ scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_
 # unmoving frames. This preference even takes priority over placing
 # keyframes at actual scene changes. For most works, it's common to
 # find cuts where the character will make some movements at the very
-# start of a cut, before they stops moving and starts talking. Using
-# av1an, these few frames will be allocated to the previous scenes.
-# These are a low number of frames, with movements, and after an actual
-# scene changes, but placed at the very end of previous scene, which is
-# why they will often be encoded horrendously. Compared to av1an, WWXD
-# or Scxvid is more reliable in this matter, and would have less issues
-# like this.
+# start of a cut, before they settles and starts talking. Using av1an,
+# these few frames will be allocated to the previous scenes. These are
+# a low number of frames, with movements, and after an actual scene
+# changes, but placed at the very end of previous scene, which is why
+# they will often be encoded badly. They most likely would be picked up
+# by Progression Boost to be given a big boost, but compared to av1an,
+# WWXD or Scxvid is more reliable in this matter, and would have less
+# potentials for issues like this.
 #
 # Similar to `--sc-method fast` against `--sc-method standard`, WWXD
-# and Scxvid struggles in sections challenging for scene detection. It
-# will mark either too much or too few keyframes. This is largely
-# alleviated by the additional scene detection logic in this script.
+# and Scxvid struggles in sections challenging for scene detection,
+# such as a continous cut many times the length of
+# `scene_detection_extra_split` featuring lots of movements but no
+# actual scenecuts, or sections with a lot of very fancy transition
+# effects between cuts. WWXD or Scxvid tends to mark either too much or
+# too few keyframes. Although this is largely alleviated by the
+# additional scene detection logic in this script, you should prefer
+# `--sc-method standard` if your source contains long sections of very
+# challenging material unless you're boosting the worst frames to be
+# good.
 #
 # In general, you should always use WWXD or Scxvid if you cares about
 # the worst frames. For encodes targeting a good mean quality, if there
@@ -282,11 +292,12 @@ scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_
 # 
 # Progression Boost provides two options for VapourSynth-based scene
 # detection, `wwxd` and `wwxd_scxvid`. `wwxd_scxvid` is slightly safer
-# than `wwxd` alone, but it is slower. You should use `wwxd_scxvid`
-# unless it's too slow, which `wwxd` can be then used. If you want to
-# use VapourSynth-based scene detection, comment the lines above for
-# av1an, uncomment the first line below for VapourSynth, and then
-# uncomment the specific method you want to use for scene detection.
+# than `wwxd` alone, but multiple times slower. You should use
+# `wwxd_scxvid` unless it's too slow, which `wwxd` can be then used. If
+# you want to use VapourSynth-based scene detection, comment the lines
+# above for av1an, uncomment the first line below for VapourSynth, and
+# then uncomment the specific method you want to use for scene
+# detection.
 #
 # Note that if you're encoding videos with full instead of limited
 # colour range, you must go down to the code and adjust the threshold.
