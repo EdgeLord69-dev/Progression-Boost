@@ -144,7 +144,7 @@ testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 7 --fast-deco
 # Specify a `--crf` value that's not too far away from the lowest and
 # the highest `--crf` value specified in `testing_crfs` to be safe.
 final_min_crf = 6.00
-final_max_crf = 55.00
+final_max_crf = 52.00
 
 # If you're using the default `testing_crfs` for Butteraugli 3Norm,
 # comment the line above for SSIMU2 and uncomment the lines below.
