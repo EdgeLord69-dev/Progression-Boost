@@ -426,19 +426,18 @@ metric_better_metric = np.less
 # metric_better_metric = np.greater
 # ---------------------------------------------------------------------
 # After calcuating metric for frames, we summarise the quality for each
-# scene into a single value. There are two common way for this.
+# scene into a single value. There are three common way for this.
 # 
 # The first is the percentile method. The percentile method is better
-# at making sure that the bad frames are good.
+# at getting bad frames are good.
 # With an aggressive observation such as observing 10th percentile or
 # lower, in tests, we have had the worst single frame to be within 3
 # to 4 SSIMU2 away from the mean. Compared to the normal 15 or more
 # without boosting, boosting using the percentile method ensures that
 # every frame to be decent.
-# A note is that if you want to guarantee the best quality, you should
-# also increase the number of frames to measured using
-# `metric_min_num_frames` variable specified above in order to prevent
-# random bad frames from slipping through.
+# A note is that if you want to get the best quality, you should also
+# increase the number of frames to measured specified above in order to
+# prevent random bad frames from slipping through.
 # When targeting lower quality targets, a looser observation such as
 # observing the 20th or the 30th percentile should also produce a decent
 # result for encodes targeting lower quality targets.
@@ -456,9 +455,19 @@ metric_better_metric = np.less
 # The percentile method is also tested on Butteraugli 3Norm score, use
 # 90th percentile instead of 10th, and 80th percentile instead of 20th,
 # and you are good to go.
-metric_percentile = 90
+# metric_percentile = 90
+# def metric_summarise(scores: np.ndarray[float]) -> float:
+#     return np.percentile(scores, metric_percentile, method="median_unbiased")
+
+# The second method is even more aggressive than the first method, to
+# take the minimum or the maximum value from the metric.
+# A note is that if you want to get the best quality, you should also
+# increase the number of frames to measured specified above in order to
+# prevent random bad frames from slipping through.
+# def metric_summarise(scores: np.ndarray[float]) -> float:
+#     return np.min(scores)
 def metric_summarise(scores: np.ndarray[float]) -> float:
-    return np.percentile(scores, metric_percentile, method="median_unbiased")
+    return np.max(scores)
 
 # The second method is to calculate a mean value for the whole scene.
 # For SSIMU2 score, harmonic mean is studied by Miss Moonlight to have
@@ -596,10 +605,10 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
                     method="L-BFGS-B", options={"ftol": 1e-6}, bounds=bounds)
     if fit.success and not np.isclose(fit.x[0], 0, rtol=0, atol=1e-7):
         def predict(crf):
-            if crf >= 12:
+            if crf >= 11:
                 return polynomial(crf, fit.x)
             else:
-                return polynomial(13 - (13 - crf) ** 1.13, fit.x)
+                return polynomial(12 - (12 - crf) ** 1.12, fit.x)
         return predict
 
     def cut(crf):
