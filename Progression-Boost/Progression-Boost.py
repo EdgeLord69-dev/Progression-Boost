@@ -1029,22 +1029,22 @@ for i, scene in enumerate(scenes["scenes"]):
     else:
         assert False, "This indicates a bug in the original code. Please report this to the repository including this error message in full."
 
-    final_crf = final_dynamic_crf(final_crf)
+    final_crf_ = final_dynamic_crf(final_crf)
     # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
-    final_crf = round(final_crf / 0.25) * 0.25
+    final_crf_ = round(final_crf_ / 0.25) * 0.25
 
-    if printing or metric_verbose or final_crf < metric_reporting_crf:
-        print(f"\033[K{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / OK / Final crf: {final_crf:.2f}")
+    if printing or metric_verbose or final_crf_ < metric_reporting_crf:
+        print(f"\033[K{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / OK / Final crf: {final_crf_:.2f}")
 
     if zones_file:
         # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
-        zones_f.write(f"{scene["start_frame"]} {scene["end_frame"]} svt-av1 {"reset" if final_parameters_reset else ""} --crf {final_crf:.2f} {final_dynamic_parameters(final_crf)} {final_parameters}\n")
+        zones_f.write(f"{scene["start_frame"]} {scene["end_frame"]} svt-av1 {"reset" if final_parameters_reset else ""} --crf {final_crf_:.2f} {final_dynamic_parameters(final_crf)} {final_parameters}\n")
 
     if scenes_file:
         scene["zone_overrides"] = {
             "encoder": "svt_av1",
             "passes": 1,
-            "video_params": ["--crf", f"{final_crf:.2f}" ] + final_dynamic_parameters(final_crf).split() + final_parameters.split(),
+            "video_params": ["--crf", f"{final_crf_:.2f}" ] + final_dynamic_parameters(final_crf).split() + final_parameters.split(),
             "photon_noise": None,
             "extra_splits_len": scene_detection_extra_split,
             "min_scene_len": scene_detection_min_scene_len
