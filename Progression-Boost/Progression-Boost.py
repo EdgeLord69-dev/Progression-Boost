@@ -381,8 +381,8 @@ metric_highest_diff_min_separation = 8
 # power and you want to be relatively safe, use maybe 10 and 5. If you
 # want to speed up metric calculation, you can try 4 and 2 for these
 # while also reducing `metric_highest_diff_frames` to 2.
-metric_upper_diff_bracket_frames = 4
-metric_lower_diff_bracket_frames = 2
+metric_upper_diff_bracket_frames = 6
+metric_lower_diff_bracket_frames = 3
 # We select frames from the two brackets randomly, but we want to avoid
 # picking a frame in the lower bracket right after a frame from the
 # upper bracket, because these two frames are most likely exactly the
