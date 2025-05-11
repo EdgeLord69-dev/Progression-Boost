@@ -429,7 +429,7 @@ metric_better_metric = np.less
 # scene into a single value. There are three common way for this.
 # 
 # The first is the percentile method. The percentile method is better
-# at getting bad frames are good.
+# at getting bad frames good.
 # With an aggressive observation such as observing 10th percentile or
 # lower, in tests, we have had the worst single frame to be within 3
 # to 4 SSIMU2 away from the mean. Compared to the normal 15 or more
@@ -460,7 +460,7 @@ metric_better_metric = np.less
 #     return np.percentile(scores, metric_percentile, method="median_unbiased")
 
 # The second method is even more aggressive than the first method, to
-# take the minimum or the maximum value from the metric.
+# take the minimum or the maximum value from all the frames measured.
 # A note is that if you want to get the best quality, you should also
 # increase the number of frames to measured specified above in order to
 # prevent random bad frames from slipping through.
