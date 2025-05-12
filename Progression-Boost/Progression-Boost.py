@@ -416,9 +416,9 @@ metric_last_frame = 1
 # metric_better_metric = np.greater
 
 # To use Butteraugli 3Norm via vship, uncomment the lines below.
-metric_calculate = core.vship.BUTTERAUGLI
-metric_metric = lambda frame: frame.props["_BUTTERAUGLI_3Norm"]
-metric_better_metric = np.less
+# metric_calculate = core.vship.BUTTERAUGLI
+# metric_metric = lambda frame: frame.props["_BUTTERAUGLI_3Norm"]
+# metric_better_metric = np.less
 
 # To use Butteraugli INFNorm via vship, uncomment the lines below.
 # metric_calculate = core.vship.BUTTERAUGLI
@@ -430,9 +430,9 @@ metric_better_metric = np.less
 # targets. Butteraugli 3Norm ensures a good baseline measurement, while
 # the tiny spice of Butteraugli INFNorm patches some of the small
 # issues Butteraugli 3Norm missed.
-# metric_calculate = core.vship.BUTTERAUGLI
-# metric_metric = lambda frame: frame.props["_BUTTERAUGLI_3Norm"] * 0.97 + frame.props["_BUTTERAUGLI_INFNorm"] * 0.03
-# metric_better_metric = np.less
+metric_calculate = core.vship.BUTTERAUGLI
+metric_metric = lambda frame: frame.props["_BUTTERAUGLI_3Norm"] * 0.97 + frame.props["_BUTTERAUGLI_INFNorm"] * 0.03
+metric_better_metric = np.less
 
 # To use SSIMU2 via vszip, uncomment the lines below.
 # metric_calculate = partial(core.vszip.Metrics, mode=0)
@@ -659,7 +659,7 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
 # default, the quality we get from test encodes will be lower than that
 # of the final encode using slower presets. You should account for this
 # when setting the number.
-metric_target = 0.530
+metric_target = 0.620
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 
