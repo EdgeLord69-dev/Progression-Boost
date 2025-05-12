@@ -401,6 +401,11 @@ metric_upper_diff_bracket_fallback_frames = metric_upper_diff_bracket_frames // 
 # the first frame as the keyframe often has great quality. Do you want
 # to always include the first frame in metric calculation?
 metric_first_frame = 1
+#
+# Sometimes, certain version of SVT-AV1-PSY will encode the last frame
+# of a scene slightly worse than the rest of the frames. Do you want to
+# always include the first frame in metric calculation?
+metric_last_frame = 1
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # What metric do you want to use? Are you hipping, or are you zipping?
@@ -925,6 +930,9 @@ for i, scene in enumerate(scenes["scenes"]):
             continue
         offfset_frames.append(offfset_frame)
         picked += 1
+    
+    if metric_last_frame >= 1 and scene["end_frame"] - scene["start_frame"] - 2 not in offfset_frames:
+        offfset_frames.append(scene["end_frame"] - scene["start_frame"] - 2)
 
     scene_diffs_percentile = np.percentile(scene_diffs, 40, method="linear")
     scene_diffs_percentile_absolute_deviation = np.percentile(np.abs(scene_diffs - scene_diffs_percentile), 40, method="linear")
