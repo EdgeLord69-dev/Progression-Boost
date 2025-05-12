@@ -425,6 +425,15 @@ metric_better_metric = np.greater
 # metric_metric = lambda frame: frame.props["_BUTTERAUGLI_INFNorm"]
 # metric_better_metric = np.less
 
+# During testing, we found that Butteraugli 3Norm with a tiny spice of
+# Butteraugli INFNorm performs very well when targeting high quality
+# targets. Butteraugli 3Norm ensures a good baseline measurement, while
+# the tiny spice of Butteraugli INFNorm patches some of the small
+# issues Butteraugli 3Norm missed.
+# metric_calculate = core.vship.BUTTERAUGLI
+# metric_metric = lambda frame: frame.props["_BUTTERAUGLI_3Norm"] * 0.97 + frame.props["_BUTTERAUGLI_INFNorm"] * 0.03
+# metric_better_metric = np.less
+
 # To use SSIMU2 via vszip, uncomment the lines below.
 # metric_calculate = partial(core.vszip.Metrics, mode=0)
 # metric_metric = lambda frame: frame.props["_SSIMULACRA2"]
@@ -439,17 +448,17 @@ metric_better_metric = np.greater
 # lower, in tests, we have had the worst single frame to be within 3
 # to 4 SSIMU2 away from the mean. Compared to the normal 15 or more
 # without boosting, boosting using the percentile method ensures that
-# every frame to be decent.
+# even the bad frames are decent.
 # A note is that if you want to get the best quality, you should also
 # increase the number of frames to measured specified above in order to
 # prevent random bad frames from slipping through.
 # When targeting lower quality targets, a looser observation such as
 # observing the 20th or the 30th percentile should also produce a decent
-# result for encodes targeting lower quality targets.
+# result.
 # 
 # Note that Progression Boost by default uses median-unbiased estimator
-# for calculating percentile, which is much, much more sensitive to
-# extreme values than linear estimator.
+# for calculating percentile, which is much more sensitive to extreme
+# values than linear estimator.
 #
 # Specify the `metric_percentile` you want to observe below depending on
 # your desired quality for the encode.
@@ -466,6 +475,8 @@ def metric_summarise(scores: np.ndarray[float]) -> float:
 
 # The second method is even more aggressive than the first method, to
 # take the minimum or the maximum value from all the frames measured.
+# This is the default for the preset targeting the highest quality,
+# Preset-Butteraugli-3Norm-INFNorm-Max.
 # A note is that if you want to get the best quality, you should also
 # increase the number of frames to measured specified above in order to
 # prevent random bad frames from slipping through.
