@@ -393,7 +393,7 @@ metric_lower_diff_bracket_min_separation = 2
 # of frames selected in the upper diff bracket is smaller than this
 # number, we will select additional frames in the lower bracket until
 # this number is reached.
-metric_upper_diff_bracket_fallback_frames = 6
+metric_upper_diff_bracket_fallback_frames = 10
 #
 # All these diff sorting and selection excludes the first frame of the
 # scene since the diff data of the first frame is compared against the
