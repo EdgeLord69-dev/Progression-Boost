@@ -131,7 +131,8 @@ def testing_dynamic_parameters(crf: float) -> str:
 # Specify the `--video-params` or parameters for the encoder during
 # test encodes. You should use the same parameters as your final
 # encode, except for `--film-grain`, which you may want to set to `0`
-# for test encode. You need to specify everything other than `--input`,
+# for test encode, and `--preset`, which you want to use a faster
+# preset. You need to specify everything other than `--input`,
 # `--output`, `--crf` and the parameters you've set to generate
 # dynamically.
 testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 7 --fast-decode 1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
@@ -190,6 +191,9 @@ def final_dynamic_parameters(crf: float) -> str:
 # you've set to generate dynamically. You can also choose to not
 # specifying anything here and only specify the parameter directly to
 # av1an.
+# You should also set `testing_parameters` above with the same
+# parameters you use here. Read the guide above for
+# `testing_parameters` for the details.
 final_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset -1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
 # If you put all your parameters here, you can also enable this option
 # to use the reset flag in the zones file.
