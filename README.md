@@ -19,7 +19,7 @@ Progression Boost is very customisable. For this reason, we offer multiple prese
 
 After you've downloaded a preset, open the file in a text editor and follow the guide at the very top to adjust the config. The guide should be able to lead you through all the options for Progression Boost.
 
-Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip. If you're using scnene detection methods based on WWXD or Scxvid, you would also need to install them from vsrepo or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git) & [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)).  
+Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip. If you're using scnene detection methods based on WWXD or Scxvid, you would also need to install them from vsrepo or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)).  
 
 ### Note
 
