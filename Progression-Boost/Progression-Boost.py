@@ -187,17 +187,27 @@ def final_dynamic_parameters(crf: float) -> str:
     return ""
 # ---------------------------------------------------------------------
 # Specify other `--video-params` or parameters for the encoder for the
-# output zones file. You should not specify `--crf` or the parameters
-# you've set to generate dynamically. You can also choose to not
-# specifying anything here and only specify the parameter directly to
-# av1an.
+# `--output-zones` and `--output-scenes` file. You should not specify
+# `--crf` or the parameters you've set to generate dynamically.
+# Only for `--output-zones`, you may choose to not specifying anything
+# here and later specifying the parameters directly to av1an. For
+# `--output-scenes`, this scenes file from Progression Boost would be
+# the final file, and all later parameters to av1an would be disregarded
+# per design of av1an.
 # You should also set `testing_parameters` above with the same
 # parameters you use here. Read the guide above for
 # `testing_parameters` for the details.
 final_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset -1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
 # If you put all your parameters here, you can also enable this option
-# to use the reset flag in the zones file.
+# to use the reset flag in the zones file. This only affects
+# `--output-zones` and not `--output-scenes`.
 final_parameters_reset = False
+# ---------------------------------------------------------------------
+# Specify `--photon-noise` for the scenes file. You should specify this
+# the same way as `photon_noise` is represented in each scene in the
+# scenes JSON. This is only applied in `--output-scenes` and not
+# `--output-zones`.
+photon_noise = None
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Specify the desired scene length for scene detection. The result from
@@ -1068,7 +1078,7 @@ for i, scene in enumerate(scenes["scenes"]):
             "encoder": "svt_av1",
             "passes": 1,
             "video_params": ["--crf", f"{final_crf_:.2f}" ] + final_dynamic_parameters(final_crf).split() + final_parameters.split(),
-            "photon_noise": None,
+            "photon_noise": photon_noise,
             "extra_splits_len": scene_detection_extra_split,
             "min_scene_len": scene_detection_min_scene_len
         }
