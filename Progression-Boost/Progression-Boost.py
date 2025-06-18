@@ -165,7 +165,7 @@ def final_dynamic_crf(crf: float) -> float:
 # help mitigate this issue.
 # 0.93 should be a very safe value here going from `--preset 6` to
 # `--preset 2`.
-    if crf <= 25.00:
+    if crf < 25.00:
         crf = (crf / 25.00) ** 0.94 * 25.00
 # Here are some more aggresive values. Only use high values when the
 # difference between test encode `--preset`s and final encode
@@ -176,10 +176,10 @@ def final_dynamic_crf(crf: float) -> float:
 # If you have the time, you can calculate the metric for the final
 # encode, and either increase or decrease the value depending on in
 # which scene the worst frame resides.
-    # if crf <= 25.00:
-    #     crf = (crf / 25.00) ** 0.88 * 25.00
-    # if crf <= 25.00:
-    #     crf = (crf / 25.00) ** 0.82 * 25.00
+#     if crf < 25.00:
+#         crf = (crf / 25.00) ** 0.88 * 25.00
+#     if crf < 25.00:
+#         crf = (crf / 25.00) ** 0.82 * 25.00
 
 # Do you want a real constant quality, or do you just want a small
 # boost, not wishing to throw a lot of bitrates on the most demanding
