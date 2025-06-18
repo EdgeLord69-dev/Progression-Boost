@@ -152,25 +152,46 @@ final_max_crf = 52.00
 # final_min_crf = 6.00
 # final_max_crf = 30.00
 # ---------------------------------------------------------------------
+# The following function is run after we've measured the test encodes
+# and deducted a `--crf` number for the final encode. It is used to
+# perform a final adjustment to the `--crf` value in the output.
+def final_dynamic_crf(crf: float) -> float:
+
+# The first thing we want to address is the difference in quality
+# difference between `--crf`s, moving from faster `--preset`s in test
+# encodes to slower `--preset`s in the final encode. Let's say if
+# `--crf A` is 50% better than `--crf B` in `--preset 6`, it might be
+# up to 70% better in `--preset -1`. We can apply a uniform offset to
+# help mitigate this issue.
+# 0.93 should be a very safe value here going from `--preset 6` to
+# `--preset 2`.
+    crf = (crf / 25.00) ** 0.95 * 25.00
+# Here are some more aggresive values. Only use high values when the
+# difference between test encode `--preset`s and final encode
+# `--preset`s are big. As a reference, 0.85 to 0.82 should be fine from
+# `--preset 6` to `--preset 0`.
+# Comment the line above and uncomment either of the line below for a
+# more aggressive adjustment.
+# If you have the time, you can calculate the metric for the final
+# encode, and either increase or decrease the value depending on in
+# which scene the worst frame resides.
+#     crf = (crf / 25.00) ** 0.88 * 25.00
+#     crf = (crf / 25.00) ** 0.82 * 25.00
+
 # Do you want a real constant quality, or do you just want a small
 # boost, not wishing to throw a lot of bitrates on the most demanding
-# scenes? For targeting constant quality, you don't need to modify
-# anything here.
-def final_dynamic_crf(crf: float) -> float:
-    return crf
+# scenes? Here's a way to dampen scenes that has been boosted to very
+# high `--crf`. Enable this if needed.
+#     if crf < testing_crfs[0]:
+#         crf = (crf / testing_crfs[0]) ** 0.7 * testing_crfs[0]
 
-# If you want to dampen the most boosted scenes, you can try to
-# uncomment the lines below or write your own method.
-#
-# This function receives `--crf` in multiples of 0.05. The new `--crf`
-# it returns can be in any precision.
+# You may also implement your own function here.
+# The `--crf`s this function receives are in multiples of 0.05. The new
+# `--crf`s it returns can be in any precision.
 # Even if you change things here, do not remove `final_min_crf` and 
 # `final_max_crf` from last section. They are necessary for Progression
 # Boost to work, even if you apply additional limits here.
-# def final_dynamic_crf(crf: float) -> float:
-#     if crf < testing_crfs[0]:
-#         crf = (crf / testing_crfs[0]) ** 0.7 * testing_crfs[0]
-#     return crf
+    return crf
 # ---------------------------------------------------------------------
 # Do you want to change other parameters than `--crf` dynamically
 # for the output zones file (and the eventual final encode)? This
@@ -197,7 +218,7 @@ def final_dynamic_parameters(crf: float) -> str:
 # You should also set `testing_parameters` above with the same
 # parameters you use here. Read the guide above for
 # `testing_parameters` for the details.
-final_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset -1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
+final_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 0 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
 # If you put all your parameters here, you can also enable this option
 # to use the reset flag in the zones file. This only affects
 # `--output-zones` and not `--output-scenes`.
@@ -453,6 +474,12 @@ metric_better_metric = np.greater
 # metric_metric = lambda frame: frame.props["_SSIMULACRA2"]
 # metric_better_metric = np.greater
 # ---------------------------------------------------------------------
+# You don't need to modify anything here.
+class UnreliableSummarisationError(Exception):
+    def __init__(self, score, message):
+        super().__init__(message)
+        self.score = score
+# ---------------------------------------------------------------------
 # After calcuating metric for frames, we summarise the quality for each
 # scene into a single value. There are three common way for this.
 # 
@@ -508,10 +535,20 @@ metric_better_metric = np.greater
 # standard deviation of less than 2.000 in the final encode, compared to
 # a normal value of 3 to 4 without boosting.
 #
+# There is a very rare edge case for harmonic mean, that when the score
+# for a single frame dropped too low, it can skew the whole mean value
+# to the point that scores for all other frames have essentially no
+# effects on the final score. For this reason, we cap the SSIMU2 score to
+# 10 before calculating harmonic mean. 
+#
 # To use the harmonic mean method, comment the lines above for the
-# percentile method, and uncomment the two lines below.
+# percentile method, and uncomment the lines below.
 def metric_summarise(scores: np.ndarray[float]) -> float:
-    return scores.shape[0] / np.sum(1 / scores)
+    if np.any((small := scores < 10)):
+        scores[small] = 10
+        raise UnreliableSummarisationError(scores.shape[0] / np.sum(1 / scores), f"Frames in this scene receive a metric score below 10 for test encodes.")
+    else:
+        return scores.shape[0] / np.sum(1 / scores)
 
 # For Butteraugli 3Norm score, root mean cube is suggested by Miss
 # Moonlight and tested to have good overall boosting result.
@@ -1014,10 +1051,18 @@ for i, scene in enumerate(scenes["scenes"]):
             clip += metric_clip[int(frame)]
         clips.append(clip)
         
+    printed = False
     quantisers = np.empty((len(testing_crfs),), dtype=float)
     for n in range(len(testing_crfs)):
         scores = np.array([metric_metric(frame) for frame in metric_calculate(clips[0], clips[n + 1]).frames()])
-        quantisers[n] = metric_summarise(scores)
+        try:
+            quantisers[n] = metric_summarise(scores)
+        except UnreliableSummarisationError as e:
+            if not printed:
+                print(f"\033[K{metric_scene_frame_print(i, scene["start_frame"], scene["end_frame"])} / Unreliable summarisation / {str(e)}")
+                printed = True
+                printing = True
+            quantisers[n] = e.score
 
     try:
         model = metric_model(testing_crfs, quantisers)
