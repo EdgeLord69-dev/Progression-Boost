@@ -150,7 +150,7 @@ testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 6 --fast-deco
 # If you're using the default `testing_crfs` for Butteraugli 3Norm,
 # comment the line above for SSIMU2 and uncomment the lines below.
 final_min_crf = 6.00
-final_max_crf = 30.00
+final_max_crf = 26.00
 # ---------------------------------------------------------------------
 # The following function is run after we've measured the test encodes
 # and deducted a `--crf` number for the final encode. It is used to
