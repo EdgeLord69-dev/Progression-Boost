@@ -21,8 +21,9 @@ After you've downloaded a preset, open the file in a text editor and follow the 
 
 Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip. If you're using scnene detection methods based on WWXD or Scxvid, you would also need to install them from vsrepo or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)).  
 
-### Note
+### 
 
+* This script will get updated from time to time. Always use the newest version when you start a new project if you can.  
 * Progression Boost will encode the video multiple times until it can build a polynomial model. If you prefer a faster option that only encodes the video once and boost using a „magic number“, try Miss Moonlight's Lav1e or Trix's autoboost.  
 
 ## Dispatch Server
