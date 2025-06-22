@@ -21,12 +21,14 @@ from collections.abc import Callable
 from functools import partial
 from itertools import islice
 import json
+import math
 import numpy as np
 from numpy.random import default_rng
 import os
 from pathlib import Path
 import platform
 from scipy.optimize import Bounds, minimize
+from scipy.stats import median_abs_deviation
 import subprocess
 from time import time
 import vapoursynth as vs
@@ -37,6 +39,7 @@ parser.add_argument("-i", "--input", type=Path, required=True, help="Source vide
 parser.add_argument("--encode-input", type=Path, help="Source file for test encodes. Supports both video file and vpy file (Default: same as `--input`). This file is only used to perform test encodes, while scene detection will be performed using the video file specified in `--input`, and filtering before metric calculation can be set in the `Progression-Boost.py` file itself")
 parser.add_argument("-o", "--output-zones", type=Path, help="Output zones file for encoding")
 parser.add_argument("--output-scenes", type=Path, help="Output scenes file for encoding")
+parser.add_argument("--output-roi-maps", type=Path, help="Directory for output ROI maps, relative or absolute. The paths to ROI maps are written into output scenes or zones file")
 parser.add_argument("--temp", type=Path, help="Temporary folder for Progression Boost (Default: output zones or scenes file with file extension replaced by „.boost.tmp“)")
 parser.add_argument("-r", "--resume", action="store_true", help="Resume from the temporary folder. By enabling this option, Progression Boost will reuse finished or unfinished testing encodes. This should be disabled should the parameters for test encode be changed")
 parser.add_argument("--verbose", action="store_true", help="Progression Boost by default only reports scenes that have received big boost, or scenes that have built unexpected polynomial model. By enabling this option, all scenes will be reported")
@@ -47,6 +50,7 @@ if testing_input_file is None:
     testing_input_file = input_file
 zones_file = args.output_zones
 scenes_file = args.output_scenes
+roi_maps_dir = args.output_roi_maps
 if not zones_file and not scenes_file:
     parser.print_usage()
     print("Progression Boost: error: at least one of the following arguments is required: -o/--output-zones, --output-scenes")
@@ -716,6 +720,37 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
 metric_target = 86.500
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
+# Character boosting is a separate boosting system based on ROI (Region
+# Of Interest) map instead of `--crf`. This utilises image segmentation
+# model to recognise the character in the scene, and selectively boost
+# the characters.
+# This feature is still in early stage of testing. Nothing really bad
+# will spill out from this, just that we haven't figured out the
+# perfect parameters. Head down to the code section and adjust
+# parameters if necessary.
+# Enable character boosting by setting the line below to True.
+character_enable = False
+# Set how aggressive character boosting should be.
+character_sigma = 4
+# ---------------------------------------------------------------------
+if character_enable:
+    import vsmlrt
+# Select backend for vs-mlrt image segmentation model:
+    character_backend = vsmlrt.Backend.TRT
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+
+
+if character_enable:
+    if not roi_maps_dir:
+        parser.print_usage()
+        print("Progression Boost: error: the following arguments is required: --output-roi-maps")
+        raise SystemExit(2)
+    roi_maps_dir.mkdir(exist_ok=True)
+
+    character_model = Path(vsmlrt.models_path) / "anime-segmentation" / "isnet_is.onnx"
+    if not character_model.exists():
+        print(f"Progression Boost: error: Could not find anime-segmentation model at \"{character_model}\". Acquire it from https://github.com/AmusementClub/vs-mlrt/releases/external-models")
 
 
 # ---------------------------------------------------------------------
@@ -800,8 +835,8 @@ elif scene_detection_method == "vapoursynth":
         except NameError:
             assert False, "You need to select a `scene_detection_vapoursynth_method` to use `scene_detection_method` `vapoursynth`. Please check your config inside `Progression-Boost.py`."
             
-        scene_detection_rjust_digits = np.floor(np.log10(scene_detection_clip.num_frames)) + 1
-        scene_detection_rjust = lambda frame: str(frame).rjust(scene_detection_rjust_digits.astype(int))
+        scene_detection_rjust_digits = math.floor(np.log10(scene_detection_clip.num_frames))
+        scene_detection_rjust = lambda frame: str(frame).rjust(scene_detection_rjust_digits)
         
         scenes = {}
         scenes["frames"] = scene_detection_clip.num_frames
@@ -851,9 +886,9 @@ elif scene_detection_method == "vapoursynth":
                     if great_diffs[current_frame] < 1.12:
                         break
                     if (current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len) and \
-                       np.ceil((current_frame - start_frame) / scene_detection_extra_split).astype(int) + \
-                       np.ceil((end_frame - current_frame) / scene_detection_extra_split).astype(int) <= \
-                       np.ceil((end_frame - start_frame) / scene_detection_extra_split + 0.15).astype(int):
+                       math.ceil((current_frame - start_frame) / scene_detection_extra_split) + \
+                       math.ceil((end_frame - current_frame) / scene_detection_extra_split) <= \
+                       math.ceil((end_frame - start_frame) / scene_detection_extra_split + 0.15):
                         return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
                                scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
                                
@@ -876,9 +911,9 @@ elif scene_detection_method == "vapoursynth":
 
                 for current_frame in diffs_sort:
                     if (current_frame - start_frame >= scene_detection_min_scene_len and end_frame - current_frame >= scene_detection_min_scene_len) and \
-                       np.ceil((current_frame - start_frame) / scene_detection_extra_split).astype(int) + \
-                       np.ceil((end_frame - current_frame) / scene_detection_extra_split).astype(int) <= \
-                       np.ceil((end_frame - start_frame) / scene_detection_extra_split).astype(int):
+                       math.ceil((current_frame - start_frame) / scene_detection_extra_split) + \
+                       math.ceil((end_frame - current_frame) / scene_detection_extra_split) <= \
+                       math.ceil((end_frame - start_frame) / scene_detection_extra_split):
                         return scene_detection_split_scene(great_diffs, diffs, start_frame, current_frame) + \
                                scene_detection_split_scene(great_diffs, diffs, current_frame, end_frame)
 
@@ -959,16 +994,36 @@ if zones_file:
 metric_iterate_crfs = np.append(testing_crfs, [final_max_crf, final_min_crf])
 metric_reporting_crf = testing_crfs[0]
 
-metric_scene_rjust_digits = np.floor(np.log10(len(scenes["scenes"]))) + 1
-metric_scene_rjust = lambda scene: str(scene).rjust(metric_scene_rjust_digits.astype(int), "0")
-metric_frame_rjust_digits = np.floor(np.log10(metric_reference.num_frames)) + 1
-metric_frame_rjust = lambda frame: str(frame).rjust(metric_frame_rjust_digits.astype(int))
+metric_scene_rjust_digits = math.floor(np.log10(len(scenes["scenes"]))) + 1
+metric_scene_rjust = lambda scene: str(scene).rjust(metric_scene_rjust_digits, "0")
+metric_frame_rjust_digits = math.floor(np.log10(metric_reference.num_frames)) + 1
+metric_frame_rjust = lambda frame: str(frame).rjust(metric_frame_rjust_digits)
 metric_scene_frame_print = lambda scene, start_frame, end_frame: f"Scene {metric_scene_rjust(scene)} Frame [{metric_frame_rjust(start_frame)}:{metric_frame_rjust(end_frame)}]"
 
 metric_clips = [metric_reference] + \
                [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
                                          cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
 metric_clips = metric_process(metric_clips)
+
+if character_enable:
+    character_clip = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
+
+    character_block_width = math.ceil(character_clip.width / 64)
+    character_block_height = math.ceil(character_clip.height / 64)
+    character_clip = character_clip.resize.Bicubic(filter_param_a=0, filter_param_b=0.5, \
+                                                   width=character_block_width*64, height=character_block_height*64, src_width=character_block_width*64, src_height=character_block_height*64, \
+                                                   format=vs.RGBS, transfer=13)
+    character_clip = vsmlrt.inference(character_clip, character_model, backend=character_backend)
+    character_clip = character_clip.akarin.Expr("x 0.95 > x 0 ?")
+
+    character_clip = character_clip.resize.Bicubic(filter_param_a=0, filter_param_b=0, \
+                                                   width=character_block_width, height=character_block_height)
+    character_clip = character_clip.akarin.Expr("x 2 *")
+    character_clip = character_clip.akarin.Expr("""
+x[-1,-1] x[-1,0] x[-1,1] x[0,-1] x[0,0] x[0,1] x[1,-1] x[1,0] x[1,1] + + + + + + + + 9 / avg!
+avg@ x > avg@ x ? r!
+r@ 1 < r@ 1 ? r!
+r@ -1 > r@ -1 ?""")
 
 start = time() - 0.000001
 for i, scene in enumerate(scenes["scenes"]):
@@ -1004,14 +1059,14 @@ for i, scene in enumerate(scenes["scenes"]):
     scene_diffs_upper_bracket_ = np.argwhere(scene_diffs > scene_diffs_percentile + 5 * scene_diffs_percentile_absolute_deviation).reshape((-1))
     scene_diffs_lower_bracket_ = np.argwhere(scene_diffs <= scene_diffs_percentile + 5 * scene_diffs_percentile_absolute_deviation).reshape((-1))
     scene_diffs_upper_bracket = np.empty_like(scene_diffs_upper_bracket_)
-    rng.shuffle((scene_diffs_upper_bracket__ := scene_diffs_upper_bracket_[:np.ceil(scene_diffs_upper_bracket_.shape[0] / 2).astype(int)]))
+    rng.shuffle((scene_diffs_upper_bracket__ := scene_diffs_upper_bracket_[:math.ceil(scene_diffs_upper_bracket_.shape[0] / 2)]))
     scene_diffs_upper_bracket[::2] = scene_diffs_upper_bracket__
-    rng.shuffle((scene_diffs_upper_bracket__ := scene_diffs_upper_bracket_[-np.floor(scene_diffs_upper_bracket_.shape[0] / 2).astype(int):]))
+    rng.shuffle((scene_diffs_upper_bracket__ := scene_diffs_upper_bracket_[-math.floor(scene_diffs_upper_bracket_.shape[0] / 2):]))
     scene_diffs_upper_bracket[1::2] =scene_diffs_upper_bracket__
     scene_diffs_lower_bracket = np.empty_like(scene_diffs_lower_bracket_)
-    rng.shuffle((scene_diffs_lower_bracket__ := scene_diffs_lower_bracket_[:np.ceil(scene_diffs_lower_bracket_.shape[0] / 2).astype(int)]))
+    rng.shuffle((scene_diffs_lower_bracket__ := scene_diffs_lower_bracket_[:math.ceil(scene_diffs_lower_bracket_.shape[0] / 2)]))
     scene_diffs_lower_bracket[::2] = scene_diffs_lower_bracket__
-    rng.shuffle((scene_diffs_lower_bracket__ := scene_diffs_lower_bracket_[-np.floor(scene_diffs_lower_bracket_.shape[0] / 2).astype(int):]))
+    rng.shuffle((scene_diffs_lower_bracket__ := scene_diffs_lower_bracket_[-math.floor(scene_diffs_lower_bracket_.shape[0] / 2):]))
     scene_diffs_lower_bracket[1::2] = scene_diffs_lower_bracket__
 
     picked = 0
@@ -1110,6 +1165,61 @@ for i, scene in enumerate(scenes["scenes"]):
     else:
         assert False, "This indicates a bug in the original code. Please report this to the repository including this error message in full."
 
+    if character_enable:
+        clip = character_clip[scene["start_frame"]]
+        for fter in range(1, (scene["end_frame"] - scene["start_frame"]) // 16 + 1):
+            clip += (character_clip[scene["start_frame"] + fter * 16])
+
+        roi_map = []
+        uniform_offset = character_sigma // 1.5
+        uniform_nonboosting_offset = 0
+        character_key_multiplier = 1.00
+        character_32_multiplier = 0.80
+        character_16_multiplier = 0.60
+        for fter, frame in enumerate(clip.frames(backlog=48)):
+            a = np.array(frame[0], dtype=np.float32).reshape((character_block_height, -1))
+            a = a[:, :character_block_width]
+            a = np.round(a * -7).reshape((1, -1))
+
+            if fter == 0:
+                a = np.round(a * (character_sigma / 1.75 * character_key_multiplier) + uniform_offset)
+                roi_map.append([0, a])
+                roi_map.append([1, np.full_like(a, uniform_nonboosting_offset, dtype=np.float32)])
+            elif fter % 2 == 0:
+                a = np.round(a * (character_sigma / 1.75 * character_32_multiplier) + uniform_offset)
+                roi_map.append([fter * 16, a])
+                roi_map.append([fter * 16 + 1, np.full_like(a, uniform_nonboosting_offset, dtype=np.float32)])
+            else:
+                a = np.round(a * (character_sigma / 1.75 * character_16_multiplier) + uniform_offset)
+                roi_map.append([fter * 16, a])
+                roi_map.append([fter * 16 + 1, np.full_like(a, uniform_nonboosting_offset, dtype=np.float32)])
+
+        needed_offset = 0
+        crf_offset = 0
+        for line in roi_map:
+            if (offset := np.max(line[1])) < 0.01:
+                needed_offset = np.max([needed_offset, -offset])
+        if needed_offset > 0.01:
+            for line in roi_map:
+                line[1] += needed_offset
+            crf_offset = 0.25 * -needed_offset
+               
+        roi_map_file = roi_maps_dir / f"roi-map-{metric_scene_rjust(i)}.txt"
+        with roi_map_file.open("w") as roi_map_f:
+            for line in roi_map:
+                roi_map_f.write(f"{line[0]} ")
+                np.savetxt(roi_map_f, line[1], fmt="%d")
+
+    if character_enable:
+        roi_parameters_string = f"--roi-map-file '{roi_map_file}'"
+        roi_parameters_array = ["--roi-map-file", str(roi_map_file)]
+    else:
+        roi_parameters_string = ""
+        roi_parameters_array = []
+
+    if character_enable:
+        final_crf = final_crf + crf_offset
+
     final_crf_ = final_dynamic_crf(final_crf)
     # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
     final_crf_ = round(final_crf_ / 0.25) * 0.25
@@ -1119,13 +1229,13 @@ for i, scene in enumerate(scenes["scenes"]):
 
     if zones_file:
         # If you want to use a different encoder than SVT-AV1 derived ones, modify here. This is not tested and may have additional issues.
-        zones_f.write(f"{scene["start_frame"]} {scene["end_frame"]} svt-av1 {"reset" if final_parameters_reset else ""} --crf {final_crf_:.2f} {final_dynamic_parameters(final_crf)} {final_parameters}\n")
+        zones_f.write(f"{scene["start_frame"]} {scene["end_frame"]} svt-av1 {"reset" if final_parameters_reset else ""} --crf {final_crf_:.2f} {final_dynamic_parameters(final_crf)} {final_parameters} {roi_parameters_string}\n")
 
     if scenes_file:
         scene["zone_overrides"] = {
             "encoder": "svt_av1",
             "passes": 1,
-            "video_params": ["--crf", f"{final_crf_:.2f}" ] + final_dynamic_parameters(final_crf).split() + final_parameters.split(),
+            "video_params": ["--crf", f"{final_crf_:.2f}" ] + final_dynamic_parameters(final_crf).split() + final_parameters.split() + roi_parameters_array,
             "photon_noise": photon_noise,
             "extra_splits_len": scene_detection_extra_split,
             "min_scene_len": scene_detection_min_scene_len
