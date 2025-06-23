@@ -731,7 +731,7 @@ metric_target = 86.500
 # Enable character boosting by setting the line below to True.
 character_enable = False
 # Set how aggressive character boosting should be.
-character_sigma = 4
+character_sigma = 6.00
 # ---------------------------------------------------------------------
 if character_enable:
     import vsmlrt
@@ -1167,8 +1167,8 @@ for i, scene in enumerate(scenes["scenes"]):
 
     if character_enable:
         clip = character_clip[scene["start_frame"]]
-        for fter in range(1, (scene["end_frame"] - scene["start_frame"]) // 16 + 1):
-            clip += (character_clip[scene["start_frame"] + fter * 16])
+        for fter in range(1, (scene["end_frame"] - scene["start_frame"]) // 8 + 1):
+            clip += (character_clip[scene["start_frame"] + fter * 8])
 
         roi_map = []
         uniform_offset = character_sigma // 1.5
@@ -1176,6 +1176,7 @@ for i, scene in enumerate(scenes["scenes"]):
         character_key_multiplier = 1.00
         character_32_multiplier = 0.80
         character_16_multiplier = 0.60
+        character_8_multiplier = 0.40
         for fter, frame in enumerate(clip.frames(backlog=48)):
             a = np.array(frame[0], dtype=np.float32).reshape((character_block_height, -1))
             a = a[:, :character_block_width]
@@ -1185,14 +1186,18 @@ for i, scene in enumerate(scenes["scenes"]):
                 a = np.round(a * (character_sigma / 1.75 * character_key_multiplier) + uniform_offset)
                 roi_map.append([0, a])
                 roi_map.append([1, np.full_like(a, uniform_nonboosting_offset, dtype=np.float32)])
-            elif fter % 2 == 0:
+            elif fter % 4 == 0:
                 a = np.round(a * (character_sigma / 1.75 * character_32_multiplier) + uniform_offset)
-                roi_map.append([fter * 16, a])
-                roi_map.append([fter * 16 + 1, np.full_like(a, uniform_nonboosting_offset, dtype=np.float32)])
-            else:
+                roi_map.append([fter * 8, a])
+                roi_map.append([fter * 8 + 1, np.full_like(a, uniform_nonboosting_offset, dtype=np.float32)])
+            elif fter % 2 == 0:
                 a = np.round(a * (character_sigma / 1.75 * character_16_multiplier) + uniform_offset)
-                roi_map.append([fter * 16, a])
-                roi_map.append([fter * 16 + 1, np.full_like(a, uniform_nonboosting_offset, dtype=np.float32)])
+                roi_map.append([fter * 8, a])
+                roi_map.append([fter * 8 + 1, np.full_like(a, uniform_nonboosting_offset, dtype=np.float32)])
+            else:
+                a = np.round(a * (character_sigma / 1.75 * character_8_multiplier) + uniform_offset)
+                roi_map.append([fter * 8, a])
+                roi_map.append([fter * 8 + 1, np.full_like(a, uniform_nonboosting_offset, dtype=np.float32)])
 
         needed_offset = 0
         crf_offset = 0
