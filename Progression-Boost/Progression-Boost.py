@@ -1012,7 +1012,7 @@ if character_enable:
     character_block_height = math.ceil(character_clip.height / 64)
     character_clip = character_clip.resize.Bicubic(filter_param_a=0, filter_param_b=0.5, \
                                                    width=character_block_width*64, height=character_block_height*64, src_width=character_block_width*64, src_height=character_block_height*64, \
-                                                   format=vs.RGBS, transfer=13)
+                                                   format=vs.RGBS, primaries_in=1, matrix_in=1, transfer_in=1, range_in=0, transfer=13, range=1)
     character_clip = vsmlrt.inference(character_clip, character_model, backend=character_backend)
     character_clip = character_clip.akarin.Expr("x 0.95 > x 0 ?")
 
