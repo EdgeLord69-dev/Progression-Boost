@@ -717,7 +717,7 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
 # default, the quality we get from test encodes will be lower than that
 # of the final encode using slower presets. You should account for this
 # when setting the number.
-metric_target = 0.520
+metric_target = 0.500
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Character boosting is a separate boosting system based on ROI (Region
