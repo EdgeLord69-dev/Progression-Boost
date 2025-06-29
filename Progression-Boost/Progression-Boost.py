@@ -79,7 +79,7 @@ metric_verbose = args.verbose
 # starting below.                                                        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # 
 # To run the script, use `python Progression-Boost.py --input 01.mkv     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-# --output-zones 01.zones.txt --temp 01.boost.tmp`, or read the help     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# --output-scenes 01.scenes.json --temp 01.boost.tmp`, or read the help  # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # for all commandline arguments using `python Progression-Boost.py       # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # --help`.                                                               # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #
@@ -253,11 +253,19 @@ final_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 0 --color-prima
 # `--output-zones` and not `--output-scenes`.                            # <<<<  down the script at somewhere around line 700 to 900.  <<<<<<<<
 final_parameters_reset = False
 # ---------------------------------------------------------------------
-# Specify `--photon-noise` for the scenes file. You should specify this
-# the same way as `photon_noise` is represented in each scene in the
-# scenes JSON. This is only applied in `--output-scenes` and not
-# `--output-zones`.
+# Specify `--photon-noise` and `--chroma-noise` for the scenes file.
+# You should specify this the same way these values are represented
+# in each scene in the scenes JSON. This is only applied in
+# `--output-scenes` and not `--output-zones`.
 photon_noise = None
+chroma_noise = False
+# Note that due to av1an being not backward compatible, depending on     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# the version of av1an you're using, if you see av1an complaining about  # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# extra field `chroma_noise` in the scenes file, set the following       # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# variable to `False`. If you see av1an complaining about not finding    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# the field `chroma_noise` in the scenes file, set the following         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# variable to `True`.                                                    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+chroma_noise_available = True
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Specify the desired scene length for scene detection. The result from
@@ -1272,6 +1280,8 @@ for i, scene in enumerate(scenes["scenes"]):
             "extra_splits_len": scene_detection_extra_split,
             "min_scene_len": scene_detection_min_scene_len
         }
+        if chroma_noise_available:
+            scene["zone_overrides"]["chroma_noise"] = chroma_noise
 
 if zones_file:
     zones_f.close()
