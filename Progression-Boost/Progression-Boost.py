@@ -116,10 +116,10 @@ metric_verbose = args.verbose
 # margin. It shouldn't be preferred, unless the main encoding pass is
 # also performed at a relatively high `--preset`.
 # 
-# Also, if you're wondering why the `--crf` values go so high to 40 and
-# 50, the answer is that even at 40 or 50, some, especially still,
-# scenes can still achieve amazing results with 90+ SSIMU2 mean.
-testing_crfs = np.sort([11.00, 18.00, 30.00, 45.00])
+# Also, if you're wondering why the `--crf` values go so high to 50 and
+# 60, the answer is that even at 50 or 60, some, especially still,
+# scenes can still achieve amazing results with 85+ SSIMU2 mean.
+testing_crfs = np.sort([10.00, 25.00, 40.00, 55.00])
 
 # Boosting using Butteraugli 3Norm metric is different. During our
 # testing using SVT-AV1-PSY v2.3.0-Q and v3.0.2, we observed a linear
@@ -163,7 +163,7 @@ testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 7 --fast-deco
 # Specify a `--crf` value that's not too far away from the lowest and
 # the highest `--crf` value specified in `testing_crfs` to be safe.
 final_min_crf = 6.00
-final_max_crf = 52.00
+final_max_crf = 60.00
 
 # If you're using the default `testing_crfs` for Butteraugli 3Norm,
 # comment the line above for SSIMU2 and uncomment the lines below.
