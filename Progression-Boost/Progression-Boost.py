@@ -119,7 +119,7 @@ metric_verbose = args.verbose
 # Also, if you're wondering why the `--crf` values go so high to 50 and
 # 60, the answer is that even at 50 or 60, some, especially still,
 # scenes can still achieve amazing results with 85+ SSIMU2 mean.
-testing_crfs = np.sort([10.00, 25.00, 40.00, 55.00])
+testing_crfs = np.sort([10.00, 24.50, 40.00, 53.50])
 #
 # If you've had a lot of messages reporting „Frames in this scene
 # receive a metric score below 15 for test encodes.“, try the follwing
