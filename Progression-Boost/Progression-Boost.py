@@ -120,6 +120,13 @@ metric_verbose = args.verbose
 # 60, the answer is that even at 50 or 60, some, especially still,
 # scenes can still achieve amazing results with 85+ SSIMU2 mean.
 # testing_crfs = np.sort([10.00, 25.00, 40.00, 55.00])
+#
+# If you've had a lot of messages reporting „Frames in this scene
+# receive a metric score below 15 for test encodes.“, try the follwing
+# set of `testing_crfs` instead. Optionally, you should also adjust
+# `final_max_crf` to around 55.00 when you're using this set of
+# `testing_crfs`.
+# testing_crfs = np.sort([10.00, 22.00, 34.00, 46.00])
 
 # Boosting using Butteraugli 3Norm metric is different. During our
 # testing using SVT-AV1-PSY v2.3.0-Q and v3.0.2, we observed a linear
@@ -566,9 +573,9 @@ class UnreliableSummarisationError(Exception):
 # To use the harmonic mean method, comment the lines above for the
 # percentile method, and uncomment the lines below.
 # def metric_summarise(scores: np.ndarray[float]) -> float:
-#     if np.any((small := scores < 10)):
-#         scores[small] = 10
-#         raise UnreliableSummarisationError(scores.shape[0] / np.sum(1 / scores), f"Frames in this scene receive a metric score below 10 for test encodes.")
+#     if np.any((small := scores < 15)):
+#         scores[small] = 15
+#         raise UnreliableSummarisationError(scores.shape[0] / np.sum(1 / scores), f"Frames in this scene receive a metric score below 15 for test encodes. If this happens a lot for the this specific source, try switching to better `--crf`s in `testing_crfs`.")
 #     else:
 #         return scores.shape[0] / np.sum(1 / scores)
 
