@@ -205,8 +205,8 @@ def final_dynamic_crf(crf: float) -> float:
 # boost, not wishing to throw a lot of bitrates on the most demanding
 # scenes? Here's a way to dampen scenes that has been boosted to very
 # high `--crf`. Enable this if needed.
-#     if crf < testing_crfs[0]:
-#         crf = (crf / testing_crfs[0]) ** 0.7 * testing_crfs[0]
+#     if crf < 26.00:
+#         crf = (crf / 26.00) ** 0.50 * 26.00
 
 # You may also implement your own function here.
 # The `--crf`s this function receives are in multiples of 0.05. The new
