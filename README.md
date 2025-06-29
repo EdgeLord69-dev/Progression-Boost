@@ -16,7 +16,7 @@ For users that don't want too much tinkering and just want to quickly get a good
 | :-- | :-- |
 | [Butteraugli-Max](../Preset-Butteraugli-3Norm-INFNorm-Max/Progression-Boost/Progression-Boost.py) | Targeting high quality, focusing on getting even the worst frame good. |
 | [Butteraugli-Root-Mean-Cube](../Preset-Butteraugli-3Norm-Root-Mean-Cube/Progression-Boost/Progression-Boost.py) | Targeting medium-high to high quality, focusing on quality consistency. |
-| [SSIMU2-15th-Percentile](../master/Progression-Boost/Progression-Boost.py) | Targeting medium to high quality, focusing on reducing bad frames. |
+| [SSIMU2-15th-Percentile](../master/Progression-Boost/Progression-Boost.py) | Targeting medium-high to high quality, focusing on reducing bad frames. |
 | [SSIMU2-Harmonic-Mean](../Preset-SSIMU2-Harmonic-Mean/Progression-Boost/Progression-Boost.py) | Targeting medium-low to high quality, focusing on quality consistency. |
 | [SSIMU2-Harmonic-Mean-<br />Dampening](../Preset-SSIMU2-Harmonic-Mean-Dampening/Progression-Boost/Progression-Boost.py) | Targeting low to medium-low quality, maintaining a baseline consistency <br />while avoiding too much bloating. |
 
