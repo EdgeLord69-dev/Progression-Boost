@@ -8,9 +8,9 @@ Progression boost is a boosting script for maintaining a consistent quality thro
 
 ### Usage
 
-Progression Boost is very customisable. For this reason, we offer multiple presets with different quality targets. You can choose one that's closer to what you want to achieve with your encode, and then modify the config from that.  
+Progression Boost is very customisable. As a starting point, we offer multiple presets with different quality targets. You can choose one that's closer to what you want to achieve with your encode, and then modify the config from that.  
 
-For users that don't want too much tinkering and just want to quickly get a good result – one that's even better both qualitywise and timewise than av1an's `--target-quality` – don't worry. There will be guides in the file specifically for this. Once you've picked the right preset for your target, you would only need to adjust three quick parameters in the files and you are good to go! Download a preset and follow the guide at the very top of the file.  
+For users that don't want too much tinkering and just want to quickly get a good result – one that's even better than av1an's `--target-quality`, both qualitywise and timewise – don't worry. There will be guides in the file specifically for this. Once you've picked the suitable preset for your target, you would only need to adjust three quick parameters in the files and you are good to go! Download a preset and follow the guide at the very top of the file.  
 
 | Preset | Quality Target Explained |
 | :-- | :-- |
@@ -22,7 +22,9 @@ For users that don't want too much tinkering and just want to quickly get a good
 
 After you've downloaded a preset, open the file in a text editor and follow the guide at the very top to adjust the config. The guide should be able to lead you through all the options for Progression Boost.  
 
-Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip. If you're using scnene detection methods based on WWXD or Scxvid, you would also need to install them from vsrepo (`wwxd`, `scxvid`) or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)).  
+Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip.  
+If you're using scnene detection methods based on WWXD or Scxvid, you would also need to install them from vsrepo (`wwxd`, `scxvid`) or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)).  
+If you want to test out the experimental feature character boosting, you would need to install additional dependencies vs-mlrt and akarin from vsrepo (`trt` or other suitable backend for vs-mlrt, `akarin`) or AUR ([trt](https://aur.archlinux.org/packages/vapoursynth-plugin-mlrt-trt-runtime-git) or other suitable runtime, [akarin](https://aur.archlinux.org/packages?K=vapoursynth-plugin-vsakarin)).
 
 ### Note
 
