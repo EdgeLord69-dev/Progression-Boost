@@ -39,7 +39,7 @@ from time import time
 import vapoursynth as vs
 from vapoursynth import core
 
-parser = argparse.ArgumentParser(prog="Progression Boost", description="Boost encoding parameters to maintain a consistent quality throughout the whole encoding", epilog="For more configs, open `Progression-Boost.py` in a text editor and follow the guide at the very top")
+parser = argparse.ArgumentParser(prog="Progression Boost", epilog="For more configs, open `Progression-Boost.py` in a text editor and follow the guide at the very top")
 parser.add_argument("-i", "--input", type=Path, required=True, help="Source video file")
 parser.add_argument("--encode-input", type=Path, help="Source file for test encodes. Supports both video file and vpy file (Default: same as `--input`). This file is only used to perform test encodes, while scene detection will be performed using the video file specified in `--input`, and filtering before metric calculation can be set in the `Progression-Boost.py` file itself")
 parser.add_argument("-o", "--output-zones", type=Path, help="Output zones file for encoding")
