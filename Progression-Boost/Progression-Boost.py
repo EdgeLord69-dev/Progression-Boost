@@ -73,7 +73,7 @@ metric_verbose = args.verbose
 
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
-# Before everything, the codes above are for commandline arguments.      # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# Before everything, the codes above are for commandline arguments.      # <<<<  Do you want a good result fast?  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # The commandline arguments are only for specifying inputs and outputs   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # while all encoding settings need to be modified within the             # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # starting below.                                                        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -93,7 +93,7 @@ metric_verbose = args.verbose
 # as you continue reading, you can always adjust the values for your
 # needs.
 #
-# That's said, if you don't want a lot of tinkering, and you want to     # <<<<<  Do you want a good result fast?  <<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# That's said, if you don't want a lot of tinkering, and you want to     # <<<<  Do you want a good result fast?  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # get a result fast, provided that you've selected a proper preset, the  # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # only thing you would need to adjust is the following three variables.  # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # Search for this in the file, set it to fit your needs, and you're      # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
