@@ -858,7 +858,7 @@ elif scene_detection_method == "vapoursynth":
         scene_detection_clip = scene_detection_clip.std.PlaneStats(scene_detection_clip[0] + scene_detection_clip, plane=0, prop="Luma")
         target_width = np.round(np.sqrt(1280 * 720 / scene_detection_clip.width / scene_detection_clip.height) * scene_detection_clip.width / 40) * 40
         if target_width < scene_detection_clip.width * 0.9:
-            target_height = np.ceil(target_width / scene_detection_clip.width * scene_detection_clip.height)
+            target_height = np.ceil(target_width / scene_detection_clip.width * scene_detection_clip.height / 2) * 2
             src_height = target_height / target_width * scene_detection_clip.width
             src_top = (scene_detection_clip.height - src_height) / 2
             scene_detection_clip = scene_detection_clip.resize.Point(width=target_width, height=target_height, src_top=src_top, src_height=src_height,
