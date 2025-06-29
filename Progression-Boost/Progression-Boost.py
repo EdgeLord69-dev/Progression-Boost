@@ -3,15 +3,20 @@
 # Progression Boost
 # Copyright (c) Akatsumekusa and contributors
 # Thanks to Ironclad and their grav1an, Miss Moonlight and their Lav1e,
-# and Trix and their autoboost
+# Trix and their autoboost, and BoatsMcGee and their Normal-Boost.
 
 
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
-# \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ //////////////////////////////////
-# The guide and config starts approximately 40 lines below this. Start
+# The guide and config starts approximately 50 lines below this. Start
 # reading from there.
-# ////////////////////////////////// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+#
+# Also, if you don't want to do a lot of tinkering and just want to get  # <<<<  Do you want a good result fast?  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# a good result fast (one that's better than av1an's                     # <<<<  This pattern will guide you to only the necessary  <<<<<<<<<<<
+# `--target-quality`!). You would only need to change about three        # <<<<  settings.  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# options below. Go down, and only read paragraphs that have arrows on   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# the right just like this very paragraph. There will be more guides     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# below to lead you!                                                     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 
@@ -68,25 +73,34 @@ metric_verbose = args.verbose
 
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
-# Before everything, the codes above are for commandline arguments.
-# The commandline arguments are only for specifying inputs and outputs
-# while all encoding settings need to be modified within the script
-# starting below.
+# Before everything, the codes above are for commandline arguments.      # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# The commandline arguments are only for specifying inputs and outputs   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# while all encoding settings need to be modified within the             # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# starting below.                                                        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # 
-# To run the script, use `python Progression-Boost.py --input 01.mkv
-# --output-zones 01.zones.txt --temp 01.boost.tmp`, or read the help
-# for all commandline arguments using `python Progression-Boost.py
-# --help`.
+# To run the script, use `python Progression-Boost.py --input 01.mkv     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# --output-zones 01.zones.txt --temp 01.boost.tmp`, or read the help     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# for all commandline arguments using `python Progression-Boost.py       # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# --help`.                                                               # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #
 # On this note, if you don't like anything you see anywhere in this
 # script, pull requests are always welcome.
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
-# Have you noticed that we offers multiple presets for Progression
-# Boost? The guide and explanations are exactly the same for each
+# Have you noticed that we offers multiple presets for Progression       # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# Boost? The guide and explanations are exactly the same for each        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # presets. The difference is only the default value selected. Of course
 # as you continue reading, you can always adjust the values for your
 # needs.
+#
+# That's said, if you don't want a lot of tinkering, and you want to     # <<<<<  Do you want a good result fast?  <<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# get a result fast, provided that you've selected a proper preset, the  # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# only thing you would need to adjust is the following three variables.  # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# Search for this in the file, set it to fit your needs, and you're      # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# good to go!                                                            # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# * `testing_parameters`                                                 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# * `final_parameters`                                                   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# * `metric_target`                                                      # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Progression Boost will encode the video multiple times to build a
@@ -132,13 +146,13 @@ testing_crfs = np.sort([12.00, 20.00])
 def testing_dynamic_parameters(crf: float) -> str:
     return ""
 # ---------------------------------------------------------------------
-# Specify the `--video-params` or parameters for the encoder during
-# test encodes. You should use the same parameters as your final
-# encode, except for `--film-grain`, which you may want to set to `0`
-# for test encode, and `--preset`, which you want to use a faster
-# preset. You need to specify everything other than `--input`,
-# `--output`, `--crf` and the parameters you've set to generate
-# dynamically.
+# Specify the `--video-params` or parameters for the encoder during      # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# test encodes. You should use the same parameters as your final         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# encode, except for `--film-grain`, which you may want to set to `0`    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# for test encode, and `--preset`, which you want to use a faster        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# preset. You need to specify everything other than `--input`,           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# `--output`, `--crf` and the parameters you've set to generate          # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# dynamically.                                                           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 6 --fast-decode 1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
@@ -200,10 +214,9 @@ def final_dynamic_crf(crf: float) -> float:
 # Boost to work, even if you apply additional limits here.
     return crf
 # ---------------------------------------------------------------------
-# Do you want to change other parameters than `--crf` dynamically
-# for the output zones file (and the eventual final encode)? This
-# function receives a `--crf` value and should return a string of
-# parameters.
+# Do you want to change other parameters than `--crf` dynamically for
+# the output zones file (and the eventual final encode)? This function
+# receives a `--crf` value and should return a string of parameters.
 #
 # An example usage is to lower `--preset` while increase `--crf` a
 # little bit for scenes that are boosted to very low `--crf`. However,
@@ -214,21 +227,21 @@ def final_dynamic_crf(crf: float) -> float:
 def final_dynamic_parameters(crf: float) -> str:
     return ""
 # ---------------------------------------------------------------------
-# Specify other `--video-params` or parameters for the encoder for the
-# `--output-zones` and `--output-scenes` file. You should not specify
-# `--crf` or the parameters you've set to generate dynamically.
-# Only for `--output-zones`, you may choose to not specifying anything
-# here and later specifying the parameters directly to av1an. For
-# `--output-scenes`, this scenes file from Progression Boost would be
-# the final file, and all later parameters to av1an would be disregarded
-# per design of av1an.
-# You should also set `testing_parameters` above with the same
-# parameters you use here. Read the guide above for
-# `testing_parameters` for the details.
+# Specify other `--video-params` or parameters for the encoder for the   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# `--output-zones` and `--output-scenes` file. You should not specify    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# `--crf` or the parameters you've set to generate dynamically.          # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# Only for `--output-zones`, you may choose to not specifying anything   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# here and later specifying the parameters directly to av1an. For        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# `--output-scenes`, this scenes file from Progression Boost would be    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# the final file, and all later parameters to av1an would be             # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# disregarded per design of av1an.                                       # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# You should also set `testing_parameters` above with the same           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# parameters you use here. Read the guide above for                      # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# `testing_parameters` for the details.                                  # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 final_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 0 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
-# If you put all your parameters here, you can also enable this option
-# to use the reset flag in the zones file. This only affects
-# `--output-zones` and not `--output-scenes`.
+# If you put all your parameters here, you can also enable this option   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# to use the reset flag in the zones file. This only affects             # <<<<  The next variable that you have to adjust is quite low  <<<<<<
+# `--output-zones` and not `--output-scenes`.                            # <<<<  down the script at somewhere around line 700 to 900.  <<<<<<<<
 final_parameters_reset = False
 # ---------------------------------------------------------------------
 # Specify `--photon-noise` for the scenes file. You should specify this
@@ -707,17 +720,22 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
 # def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Callable[[float], float]:
 #     pass
 # ---------------------------------------------------------------------
-# After calculating the percentile, or harmonic mean, or other
-# quantizer of the data, we fit the quantizers to a polynomial model
-# and try to predict the lowest `--crf` that can reach the target
-# quality we're aiming at.
-# Specify the target quality using the variable below.
+# After calculating the percentile, or harmonic mean, or other           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# quantizer of the data, we fit the quantizers to a polynomial model     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# and try to predict the lowest `--crf` that can reach the target        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# quality we're aiming at.                                               # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# Specify the target quality using the variable below.                   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #
-# Note that since we are doing faster test encodes with `--preset 6` by
-# default, the quality we get from test encodes will be lower than that
-# of the final encode using slower presets. You should account for this
-# when setting the number.
+# Note that Progression Boost can only create the model based on test    # <<<<  These three parameters are all you need to get a good  <<<<<<<
+# encodes performed at `--preset 6` by default. You will get much        # <<<<  result fast, but you are recommended to have a look at  <<<<<<
+# better result in your final encode using a slower `--preset`. You      # <<<<  all the other settings once you become familiar with the <<<<<
+# should account for this difference when setting the number below.      # <<<<  script. There's still a lot of improvements, timewise or  <<<<
+# Maybe set it a little bit lower than your actual target.               # <<<<  qualitywise, you can have with all the other options.  <<<<<<<
 metric_target = 0.620
+#
+# You can also have a look at `final_dynamic_crf` section, where we
+# perform a flat readjustment to make the result more suitable for the
+# final `--crf`.
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Character boosting is a separate boosting system based on ROI (Region

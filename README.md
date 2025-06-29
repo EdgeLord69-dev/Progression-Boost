@@ -2,7 +2,7 @@
 
 ### Introduction
 
-Thanks to Ironclad and their grav1an, Miss Moonlight and their Lav1e, and Trix and their autoboost that makes this script possible.
+Thanks to Ironclad and their grav1an, Miss Moonlight and their Lav1e, Trix and their autoboost, and BoatsMcGee and their Normal-Boost that makes this script possible.
 
 Progression boost is a boosting script for maintaining a consistent quality throughout the whole encode. It works in the same way as Ironclad's grav1an using polynomial regression, and can be easily configured to target different quality levels and more.  
 
