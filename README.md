@@ -28,8 +28,9 @@ If you want to test out the experimental feature character boosting, you would n
 
 ### Note
 
-* This script will get updated from time to time. Always use the newest version when you start a new project if you can.  
-* Progression Boost will encode the video multiple times until it can build a polynomial model. If you prefer a faster option that only encodes the video once and boost using a „magic number“, try Miss Moonlight's Lav1e or Trix's autoboost.  
+– This script will get updated from time to time. Always use the newest version when you start a new project if you can.  
+
+– Progression Boost will encode the video multiple times until it can build a polynomial model. If you prefer a faster option that only encodes the video once and boost using a „magic number“, try Miss Moonlight's Lav1e or Trix's autoboost.  
 
 ## Dispatch Server
 
