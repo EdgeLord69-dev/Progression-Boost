@@ -3,7 +3,7 @@
 # Progression Boost
 # Copyright (c) Akatsumekusa and contributors
 # Thanks to Ironclad and their grav1an, Miss Moonlight and their Lav1e,
-# and Trix and their autoboost
+# Trix and their autoboost, and BoatsMcGee and their Normal-Boost.
 
 
 # ---------------------------------------------------------------------
