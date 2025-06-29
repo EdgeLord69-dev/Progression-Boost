@@ -176,28 +176,30 @@ final_max_crf = 30.00
 def final_dynamic_crf(crf: float) -> float:
 
 # The first thing we want to address is the difference in quality
-# difference between `--crf`s, moving from faster `--preset`s in test
+# difference between `--crf`s moving from faster `--preset`s in test
 # encodes to slower `--preset`s in the final encode. Let's say if
 # `--crf A` is 50% better than `--crf B` in `--preset 6`, it might be
-# up to 70% better in `--preset -1`. We can apply a uniform offset to
-# help mitigate this issue.
-# 0.93 should be a very safe value here going from `--preset 6` to
-# `--preset 2`.
-    if crf < 25.00:
-        crf = (crf / 25.00) ** 0.94 * 25.00
-# Here are some more aggresive values. Only use high values when the
-# difference between test encode `--preset`s and final encode
-# `--preset`s are big. As a reference, 0.85 to 0.82 should be fine from
-# `--preset 6` to `--preset 0`.
-# Comment the line above and uncomment either of the line below for a
-# more aggressive adjustment.
-# If you have the time, you can calculate the metric for the final
-# encode, and either increase or decrease the value depending on in
-# which scene the worst frame resides.
-#     if crf < 25.00:
-#         crf = (crf / 25.00) ** 0.88 * 25.00
-#     if crf < 25.00:
-#         crf = (crf / 25.00) ** 0.82 * 25.00
+# up to 80% better in `--preset -1`. To help mitigate this issue, we
+# can apply a uniform offset.
+# 
+# The higher the difference between the test encode `--preset` and the
+# final encode `--preset` is, the smaller the value you can try here.
+# During our test, we found that 0.92 should be a safe value going from
+# `--preset 7` to `--preset 2`, while 0.84 to 0.82 should be a fine
+# value from `--preset 6` to `--preset 0`.
+#
+# Also, if you're doing multiscene encoding tests such as to test out
+# optimal encoder parameters to use, you can run the metric on these
+# tests and find out around which `--crf` levels does the bad frames
+# commonly reside, and you can adjust this value to better suit your
+# settings.
+#
+# Select one of the values below by uncommenting the line and
+# commenting the others, or picking your own value by entering into any
+# of the lines.
+    crf = (crf / 24.00) ** 0.94 * 24.00
+    # crf = (crf / 24.00) ** 0.88 * 24.00
+    # crf = (crf / 24.00) ** 0.82 * 24.00
 
 # Do you want a real constant quality, or do you just want a small
 # boost, not wishing to throw a lot of bitrates on the most demanding
