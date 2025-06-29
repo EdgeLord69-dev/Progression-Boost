@@ -10,18 +10,21 @@ Progression boost is a boosting script for maintaining a consistent quality thro
 
 Progression Boost is very customisable. For this reason, we offer multiple presets with different quality targets. You can choose one that's closer to what you want to achieve with your encode, and then modify the config from that.  
 
+For users that don't want too much tinkering and just want to quickly get a good result – one that's even better both qualitywise and timewise than av1an's `--target-quality` – don't worry. There will be guides in the file specifically for this. Once you've picked the right preset for your target, you would only need to adjust three quick parameters in the files and you are good to go! Download a preset and follow the guide at the very top of the file.  
+
 | Preset | Quality Target Explained |
 | :-- | :-- |
 | [Butteraugli-Max](../Preset-Butteraugli-3Norm-INFNorm-Max/Progression-Boost/Progression-Boost.py) | Targeting very high quality, focusing on getting even the worst frame good. |
 | [SSIMU2-15th-Percentile](../master/Progression-Boost/Progression-Boost.py) | Targeting high quality, focusing on reducing the number of bad frames. |
-| [SSIMU2-Harmonic-Mean](../Preset-SSIMU2-Harmonic-Mean/Progression-Boost/Progression-Boost.py) | Targeting from low to high quality, focusing on quality consistency. |
 | [Butteraugli-Root-Mean-Cube](../Preset-Butteraugli-3Norm-Root-Mean-Cube/Progression-Boost/Progression-Boost.py) | Targeting medium-high to high quality, focusing on quality consistency. |
+| [SSIMU2-Harmonic-Mean](../Preset-SSIMU2-Harmonic-Mean/Progression-Boost/Progression-Boost.py) | Targeting medium to high quality, focusing on quality consistency. |
+| [SSIMU2-Harmonic-Mean-Dampening](../Preset-SSIMU2-Harmonic-Mean-Dampening/Progression-Boost/Progression-Boost.py) | Targeting low to medium quality, having a baseline consistency but avoiding bloating too much. |
 
-After you've downloaded a preset, open the file in a text editor and follow the guide at the very top to adjust the config. The guide should be able to lead you through all the options for Progression Boost.
+After you've downloaded a preset, open the file in a text editor and follow the guide at the very top to adjust the config. The guide should be able to lead you through all the options for Progression Boost.  
 
-Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip. If you're using scnene detection methods based on WWXD or Scxvid, you would also need to install them from vsrepo or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)).  
+Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip. If you're using scnene detection methods based on WWXD or Scxvid, you would also need to install them from vsrepo (`wwxd`, `scxvid`) or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)).  
 
-### 
+### Note
 
 * This script will get updated from time to time. Always use the newest version when you start a new project if you can.  
 * Progression Boost will encode the video multiple times until it can build a polynomial model. If you prefer a faster option that only encodes the video once and boost using a „magic number“, try Miss Moonlight's Lav1e or Trix's autoboost.  
