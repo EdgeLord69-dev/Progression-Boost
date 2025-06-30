@@ -119,7 +119,7 @@ metric_verbose = args.verbose
 # Also, if you're wondering why the `--crf` values go so high to 50 and
 # 60, the answer is that even at 50 or 60, some, especially still,
 # scenes can still achieve amazing results with 85+ SSIMU2 mean.
-testing_crfs = np.sort([10.00, 24.50, 40.00, 53.50])
+testing_crfs = np.sort([24.50, 40.00, 53.50])
 #
 # If you've had a lot of messages reporting „Frames in this scene
 # receive a metric score below 15 for test encodes.“, try the follwing
@@ -169,7 +169,7 @@ testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 7 --fast-deco
 #
 # Specify a `--crf` value that's not too far away from the lowest and
 # the highest `--crf` value specified in `testing_crfs` to be safe.
-final_min_crf = 6.00
+final_min_crf = 12.00
 final_max_crf = 60.00
 
 # If you're using the default `testing_crfs` for Butteraugli 3Norm,
@@ -213,7 +213,7 @@ def final_dynamic_crf(crf: float) -> float:
 # scenes? Here's a way to dampen scenes that has been boosted to very
 # high `--crf`. Enable this if needed.
     if crf < 26.00:
-        crf = (crf / 26.00) ** 0.50 * 26.00
+        crf = (crf / 26.00) ** 0.60 * 26.00
 
 # You may also implement your own function here.
 # The `--crf`s this function receives are in multiples of 0.05. The new
@@ -404,8 +404,8 @@ metric_reference = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), c
 # Additionally, you can also apply some filters to both the source and
 # the encoded clip before calculating metric. By default, no processing
 # is performed.
-def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
-    return clips
+# def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
+#     return clips
 
 # If you want higher speed calculating metrics, here is a hack. What
 # about cropping the clip from 1080p to 900p or 720p? This is tested to
@@ -416,10 +416,10 @@ def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
 # compare. This may not may not be preferrable. If you want to enable
 # cropping, comment the lines above and uncomment the lines below to
 # crop the clip to 900p before comparing.
-# def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
-#     for i in range(len(clips)):
-#         clips[i] = clips[i].std.Crop(left=160, right=160, top=90, bottom=90)
-#     return clips
+def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
+    for i in range(len(clips)):
+        clips[i] = clips[i].std.Crop(left=160, right=160, top=90, bottom=90)
+    return clips
 # ---------------------------------------------------------------------
 # When calculating metric, we don't need to calculate it for every
 # single frame. It's very common for anime to have 1 frame of animation
@@ -437,7 +437,7 @@ def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
 # of the frames you're measuring here. Although do note that this way
 # the percentile you're measuring no longer represents the percentile
 # of the whole scene, but just the percentile of the frames you pick.
-metric_highest_diff_frames = 3
+metric_highest_diff_frames = 2
 # We will avoid selecting frames too close to each other to avoid
 # picking all the frames from, let's say, a fade at the start or the
 # end of the scene.
@@ -453,8 +453,8 @@ metric_highest_diff_min_separation = 12
 # power and you want to be relatively safe, use maybe 10 and 5. If you
 # want to speed up metric calculation, you can try 4 and 2 for these
 # while also reducing `metric_highest_diff_frames` to 2.
-metric_upper_diff_bracket_frames = 6
-metric_lower_diff_bracket_frames = 3
+metric_upper_diff_bracket_frames = 4
+metric_lower_diff_bracket_frames = 2
 # We select frames from the two brackets randomly, but we want to avoid
 # picking a frame in the lower bracket right after a frame from the
 # upper bracket, because these two frames are most likely exactly the
