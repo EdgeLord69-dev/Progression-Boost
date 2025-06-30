@@ -160,7 +160,7 @@ def testing_dynamic_parameters(crf: float) -> str:
 # preset. You need to specify everything other than `--input`,           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # `--output`, `--crf` and the parameters you've set to generate          # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # dynamically.                                                           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-testing_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 7 --fast-decode 1 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
+testing_parameters = "--lp 1 --keyint -1 --input-depth 10 --preset 7 --fast-decode 2 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0 --psy-rd 1 --spy-rd 1 --noise-norm-strength 3 --qp-scale-compress-strength 3 --sharp-tx 1 --qm-min 8 --qm-max 15 --low-q-taper 1 --complex-hvs 1 --film-grain 0 --tune 0 --variance-boost-strength 3 --varince-octile 5 --hbd-mds 1 --luminance-qp-bias 25 --chroma-qm-min 10 --chroma-qm-max 15 --enable-dlf 2"
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Config for the target quality to generate the final `--crf` comes
@@ -212,8 +212,8 @@ def final_dynamic_crf(crf: float) -> float:
 # boost, not wishing to throw a lot of bitrates on the most demanding
 # scenes? Here's a way to dampen scenes that has been boosted to very
 # high `--crf`. Enable this if needed.
-#     if crf < 26.00:
-#         crf = (crf / 26.00) ** 0.50 * 26.00
+    if crf < 26.00:
+        crf = (crf / 26.00) ** 0.50 * 26.00
 
 # You may also implement your own function here.
 # The `--crf`s this function receives are in multiples of 0.05. The new
@@ -247,7 +247,7 @@ def final_dynamic_parameters(crf: float) -> str:
 # You should also set `testing_parameters` above with the same           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # parameters you use here. Read the guide above for                      # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # `testing_parameters` for the details.                                  # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-final_parameters = "--lp 3 --keyint -1 --input-depth 10 --preset 0 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0"
+final_parameters = "--lp 1 --keyint -1 --input-depth 10 --preset 2 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0 --psy-rd 1 --spy-rd 1 --noise-norm-strength 3 --qp-scale-compress-strength 3 --sharp-tx 1 --qm-min 8 --qm-max 15 --low-q-taper 1 --complex-hvs 1 --film-grain 8 --tune 0 --variance-boost-strength 3 --varince-octile 5 --hbd-mds 1 --luminance-qp-bias 25 --chroma-qm-min 10 --chroma-qm-max 15 --enable-dlf 2 --fast-decode 2"
 # If you put all your parameters here, you can also enable this option   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # to use the reset flag in the zones file. This only affects             # <<<<  The next variable that you have to adjust is quite low  <<<<<<
 # `--output-zones` and not `--output-scenes`.                            # <<<<  down the script at somewhere around line 700 to 900.  <<<<<<<<
@@ -324,7 +324,7 @@ scene_detection_target_split = 60
 # parameters. You need to specify all parameters for an `--sc-only`
 # pass other than `-i`, `--temp` and `--scenes`.
 # scene_detection_method = "av1an".lower()
-# scene_detection_parameters = f"--sc-method fast --chunk-method lsmash"
+# scene_detection_parameters = f"--sc-method fast --chunk-method bestsource"
 # Below are the parameters that should always be used. Regular users
 # would not need to modify these.
 # scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_split} --min-scene-len {scene_detection_min_scene_len}"
@@ -389,7 +389,7 @@ scene_detection_vapoursynth_method = "wwxd".lower() # Fast
 # testing, for SVT-AV1-PSY v2.3.0-B, it's optimum to use `--lp 3` and
 # `--workers 8` for system with 32 threads, and `--lp 3` and
 # `--workers 6` for system with 24 threads.
-testing_av1an_parameters = "--workers 8 --chunk-method lsmash --pix-format yuv420p10le --encoder svt-av1 --concat mkvmerge"
+testing_av1an_parameters = "--workers 48 --chunk-method bestsource --pix-format yuv420p10le --encoder svt-av1 --concat mkvmerge"
 # Below are the parameters that should always be used. Regular users
 # would not need to modify these.
 testing_av1an_parameters += " -y"
@@ -399,7 +399,7 @@ testing_av1an_parameters += " -y"
 # calculating metric for each scenes.
 # If you want to do some filtering before calculating, you can modify
 # the following lines. Otherwise you can leave it unchanged.
-metric_reference = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
+metric_reference = core.bs.VideoSource(input_file.expanduser().resolve())
 # ---------------------------------------------------------------------
 # Additionally, you can also apply some filters to both the source and
 # the encoded clip before calculating metric. By default, no processing
@@ -437,11 +437,11 @@ def metric_process(clips: list[vs.VideoNode]) -> list[vs.VideoNode]:
 # of the frames you're measuring here. Although do note that this way
 # the percentile you're measuring no longer represents the percentile
 # of the whole scene, but just the percentile of the frames you pick.
-metric_highest_diff_frames = 6
+metric_highest_diff_frames = 8
 # We will avoid selecting frames too close to each other to avoid
 # picking all the frames from, let's say, a fade at the start or the
 # end of the scene.
-metric_highest_diff_min_separation = 10
+metric_highest_diff_min_separation = 8
 #
 # Then we will separate the frames into two brackets at 2 times MAD but
 # based on the 40th percentile instead of mean value. The lower bracket
@@ -453,8 +453,8 @@ metric_highest_diff_min_separation = 10
 # power and you want to be relatively safe, use maybe 10 and 5. If you
 # want to speed up metric calculation, you can try 4 and 2 for these
 # while also reducing `metric_highest_diff_frames` to 2.
-metric_upper_diff_bracket_frames = 4
-metric_lower_diff_bracket_frames = 4
+metric_upper_diff_bracket_frames = 6
+metric_lower_diff_bracket_frames = 3
 # We select frames from the two brackets randomly, but we want to avoid
 # picking a frame in the lower bracket right after a frame from the
 # upper bracket, because these two frames are most likely exactly the
@@ -483,9 +483,9 @@ metric_last_frame = 1
 # What metric do you want to use? Are you hipping, or are you zipping?
 # 
 # To use SSIMU2 via vship, uncomment the lines below. 
-metric_calculate = core.vship.SSIMULACRA2
-metric_metric = lambda frame: frame.props["_SSIMULACRA2"]
-metric_better_metric = np.greater
+# metric_calculate = core.vship.SSIMULACRA2
+# metric_metric = lambda frame: frame.props["_SSIMULACRA2"]
+# metric_better_metric = np.greater
 
 # To use Butteraugli 3Norm via vship, uncomment the lines below.
 # metric_calculate = core.vship.BUTTERAUGLI
@@ -507,9 +507,9 @@ metric_better_metric = np.greater
 # metric_better_metric = np.less
 
 # To use SSIMU2 via vszip, uncomment the lines below.
-# metric_calculate = partial(core.vszip.Metrics, mode=0)
-# metric_metric = lambda frame: frame.props["_SSIMULACRA2"]
-# metric_better_metric = np.greater
+metric_calculate = partial(core.vszip.Metrics, mode=0)
+metric_metric = lambda frame: frame.props["_SSIMULACRA2"]
+metric_better_metric = np.greater
 # ---------------------------------------------------------------------
 # You don't need to modify anything here.
 class UnreliableSummarisationError(Exception):
@@ -748,7 +748,7 @@ def metric_model(crfs: np.ndarray[float], quantisers: np.ndarray[float]) -> Call
 # better result in your final encode using a slower `--preset`. You      # <<<<  all the other settings once you become familiar with the <<<<<
 # should account for this difference when setting the number below.      # <<<<  script. There's still a lot of improvements, timewise or  <<<<
 # Maybe set it a little bit lower than your actual target.               # <<<<  qualitywise, you can have with all the other options.  <<<<<<<
-metric_target = 85.000
+metric_target = 70.000
 #
 # You can also have a look at `final_dynamic_crf` section, where we
 # perform a flat readjustment to make the result more suitable for the
@@ -837,7 +837,7 @@ if scene_detection_method == "av1an":
         scenes = json.load(scenes_f)
 
     if not testing_resume or not scene_detection_diffs_file.exists():
-        scene_detection_clip = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
+        scene_detection_clip = core.bs.VideoSource(input_file.expanduser().resolve())
         scene_detection_bits = scene_detection_clip.format.bits_per_sample
         scene_detection_clip = scene_detection_clip.std.PlaneStats(scene_detection_clip[0] + scene_detection_clip, plane=0, prop="Luma")
         
@@ -853,7 +853,7 @@ elif scene_detection_method == "vapoursynth":
     if not testing_resume or not scene_detection_scenes_file.exists() or not scene_detection_diffs_file.exists():
         assert scene_detection_extra_split >= scene_detection_min_scene_len * 2, "`scene_detection_method` `vapoursynth` does not support `scene_detection_extra_split` to be smaller than 2 times `scene_detection_min_scene_len`."
     
-        scene_detection_clip = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
+        scene_detection_clip = core.bs.VideoSource(input_file.expanduser().resolve())
         scene_detection_bits = scene_detection_clip.format.bits_per_sample
         scene_detection_clip = scene_detection_clip.std.PlaneStats(scene_detection_clip[0] + scene_detection_clip, plane=0, prop="Luma")
         target_width = np.round(np.sqrt(1280 * 720 / scene_detection_clip.width / scene_detection_clip.height) * scene_detection_clip.width / 40) * 40
@@ -1036,12 +1036,11 @@ metric_frame_rjust = lambda frame: str(frame).rjust(metric_frame_rjust_digits)
 metric_scene_frame_print = lambda scene, start_frame, end_frame: f"Scene {metric_scene_rjust(scene)} Frame [{metric_frame_rjust(start_frame)}:{metric_frame_rjust(end_frame)}]"
 
 metric_clips = [metric_reference] + \
-               [core.lsmas.LWLibavSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve(),
-                                         cachefile=temp_dir.joinpath(f"test-encode-{n:0>2}.lwi").expanduser().resolve()) for n in range(len(testing_crfs))]
+               [core.bs.VideoSource(temp_dir.joinpath(f"test-encode-{n:0>2}.mkv").expanduser().resolve()) for n in range(len(testing_crfs))]
 metric_clips = metric_process(metric_clips)
 
 if character_enable:
-    character_clip = core.lsmas.LWLibavSource(input_file.expanduser().resolve(), cachefile=temp_dir.joinpath("source.lwi").expanduser().resolve())
+    character_clip = core.bs.VideoSource(input_file.expanduser().resolve())
 
     character_block_width = math.ceil(character_clip.width / 64)
     character_block_height = math.ceil(character_clip.height / 64)
