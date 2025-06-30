@@ -119,7 +119,7 @@ metric_verbose = args.verbose
 # Also, if you're wondering why the `--crf` values go so high to 50 and
 # 60, the answer is that even at 50 or 60, some, especially still,
 # scenes can still achieve amazing results with 85+ SSIMU2 mean.
-testing_crfs = np.sort([10.00, 25.00, 40.00, 55.00])
+testing_crfs = np.sort([10.00, 15.00, 20.00, 25.00, 30.00, 35.00, 40.00, 45.00, 50.00, 55.00, 60.00])
 #
 # If you've had a lot of messages reporting „Frames in this scene
 # receive a metric score below 15 for test encodes.“, try the follwing
@@ -160,7 +160,7 @@ def testing_dynamic_parameters(crf: float) -> str:
 # preset. You need to specify everything other than `--input`,           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # `--output`, `--crf` and the parameters you've set to generate          # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # dynamically.                                                           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-testing_parameters = "--lp 1 --keyint -1 --input-depth 10 --preset 7 --fast-decode 2 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0 --psy-rd 1 --spy-rd 1 --noise-norm-strength 3 --qp-scale-compress-strength 3 --sharp-tx 1 --qm-min 8 --qm-max 15 --low-q-taper 1 --complex-hvs 1 --film-grain 0 --tune 0 --variance-boost-strength 3 --varince-octile 5 --hbd-mds 1 --luminance-qp-bias 25 --chroma-qm-min 10 --chroma-qm-max 15 --enable-dlf 2"
+testing_parameters = "--lp 1 --keyint -1 --input-depth 10 --preset 7 --fast-decode 2 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0 --psy-rd 1 --spy-rd 1 --noise-norm-strength 3 --qp-scale-compress-strength 3 --sharp-tx 1 --qm-min 8 --qm-max 15 --low-q-taper 1 --complex-hvs 1 --film-grain 0 --tune 0 --variance-boost-strength 3 --variance-octile 5 --hbd-mds 1 --luminance-qp-bias 25 --chroma-qm-min 10 --chroma-qm-max 15 --enable-dlf 2"
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Config for the target quality to generate the final `--crf` comes
@@ -169,7 +169,7 @@ testing_parameters = "--lp 1 --keyint -1 --input-depth 10 --preset 7 --fast-deco
 #
 # Specify a `--crf` value that's not too far away from the lowest and
 # the highest `--crf` value specified in `testing_crfs` to be safe.
-final_min_crf = 6.00
+final_min_crf = 10.00
 final_max_crf = 60.00
 
 # If you're using the default `testing_crfs` for Butteraugli 3Norm,
@@ -212,8 +212,8 @@ def final_dynamic_crf(crf: float) -> float:
 # boost, not wishing to throw a lot of bitrates on the most demanding
 # scenes? Here's a way to dampen scenes that has been boosted to very
 # high `--crf`. Enable this if needed.
-    if crf < 26.00:
-        crf = (crf / 26.00) ** 0.50 * 26.00
+    if crf < 30.00:
+        crf = (crf / 30.00) ** 0.50 * 30.00
 
 # You may also implement your own function here.
 # The `--crf`s this function receives are in multiples of 0.05. The new
@@ -247,7 +247,7 @@ def final_dynamic_parameters(crf: float) -> str:
 # You should also set `testing_parameters` above with the same           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # parameters you use here. Read the guide above for                      # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # `testing_parameters` for the details.                                  # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-final_parameters = "--lp 1 --keyint -1 --input-depth 10 --preset 2 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0 --psy-rd 1 --spy-rd 1 --noise-norm-strength 3 --qp-scale-compress-strength 3 --sharp-tx 1 --qm-min 8 --qm-max 15 --low-q-taper 1 --complex-hvs 1 --film-grain 8 --tune 0 --variance-boost-strength 3 --varince-octile 5 --hbd-mds 1 --luminance-qp-bias 25 --chroma-qm-min 10 --chroma-qm-max 15 --enable-dlf 2 --fast-decode 2"
+final_parameters = "--lp 1 --keyint -1 --input-depth 10 --preset 2 --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1 --color-range 0 --psy-rd 1 --spy-rd 1 --noise-norm-strength 3 --qp-scale-compress-strength 3 --sharp-tx 1 --qm-min 8 --qm-max 15 --low-q-taper 1 --complex-hvs 1 --film-grain 8 --tune 0 --variance-boost-strength 3 --variance-octile 5 --hbd-mds 1 --luminance-qp-bias 25 --chroma-qm-min 10 --chroma-qm-max 15 --enable-dlf 2 --fast-decode 2"
 # If you put all your parameters here, you can also enable this option   # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # to use the reset flag in the zones file. This only affects             # <<<<  The next variable that you have to adjust is quite low  <<<<<<
 # `--output-zones` and not `--output-scenes`.                            # <<<<  down the script at somewhere around line 700 to 900.  <<<<<<<<
