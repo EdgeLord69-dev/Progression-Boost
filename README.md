@@ -23,7 +23,7 @@ For users that don't want too much tinkering and just want to quickly get a good
 After you've downloaded a preset, open the file in a text editor and follow the guide at the very top to adjust the config. The guide should be able to lead you through all the options for Progression Boost.  
 
 Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip.  
-If you're using scene detection methods based on WWXD or Scxvid, you would also need to install them from vsrepo (`wwxd`, `scxvid`) or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)).  
+Additionally, to ensure a better quality, almost all presets by default uses WWXD or Scxvid based scene detection methods. You would need to install them from vsrepo (`wwxd`, `scxvid`) or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)). Or if you can't get them working, you can switch back to av1an based scene detection in the config in the file.  
 If you want to test out the experimental feature character boosting, you would need to install additional dependencies vs-mlrt and akarin from vsrepo (`trt` or other suitable backend for vs-mlrt, `akarin`) or AUR ([trt](https://aur.archlinux.org/packages/vapoursynth-plugin-mlrt-trt-runtime-git) or other suitable runtime, [akarin](https://aur.archlinux.org/packages?K=vapoursynth-plugin-vsakarin)).
 
 ### Note
