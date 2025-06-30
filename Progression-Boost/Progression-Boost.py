@@ -323,11 +323,11 @@ scene_detection_target_split = 60
 # If you want to use av1an for scene detection, specify the av1an
 # parameters. You need to specify all parameters for an `--sc-only`
 # pass other than `-i`, `--temp` and `--scenes`.
-scene_detection_method = "av1an".lower()
-scene_detection_parameters = f"--sc-method fast --chunk-method lsmash"
+# scene_detection_method = "av1an".lower()
+# scene_detection_parameters = f"--sc-method fast --chunk-method lsmash"
 # Below are the parameters that should always be used. Regular users
 # would not need to modify these.
-scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_split} --min-scene-len {scene_detection_min_scene_len}"
+# scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_split} --min-scene-len {scene_detection_min_scene_len}"
 
 # av1an is mostly good, except for one single problem: av1an often
 # prefers to place the keyframe at the start of a series of still,
@@ -375,9 +375,9 @@ scene_detection_parameters += f" --sc-only --extra-split {scene_detection_extra_
 # colour range, you must go down to the code and adjust the threshold.
 # Search for „limited“, and there will be a comment there marking how
 # you should adjust.
-# scene_detection_method = "vapoursynth".lower()
+scene_detection_method = "vapoursynth".lower()
 # scene_detection_vapoursynth_method = "wwxd_scxvid".lower() # Preferred
-# scene_detection_vapoursynth_method = "wwxd".lower() # Fast
+scene_detection_vapoursynth_method = "wwxd".lower() # Fast
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # Specify the av1an parameters for the test encodes. You need to
