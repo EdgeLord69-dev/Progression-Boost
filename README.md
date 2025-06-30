@@ -22,15 +22,17 @@ For users that don't want too much tinkering and just want to quickly get a good
 
 After you've downloaded a preset, open the file in a text editor and follow the guide at the very top to adjust the config. The guide should be able to lead you through all the options for Progression Boost.  
 
-Also, remember to install the dependencies for Progression Boost at [`requirements.txt`](Progression-Boost/requirements.txt) using pip.  
-Additionally, to ensure a better quality, almost all presets by default uses WWXD or Scxvid based scene detection methods. You would need to install them from vsrepo (`wwxd`, `scxvid`) or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)). However, this is totally optional. If you can't get them installed, you can always switch back to av1an based scene detection in the config in the file.  
-If you want to test out the experimental feature character boosting, you would need to install additional dependencies vs-mlrt and akarin from vsrepo (`trt` or other suitable backend for vs-mlrt, `akarin`) or AUR ([trt](https://aur.archlinux.org/packages/vapoursynth-plugin-mlrt-trt-runtime-git) or other suitable runtime, [akarin](https://aur.archlinux.org/packages?K=vapoursynth-plugin-vsakarin)).
+After you've adjusted the config for the encode, you need to install a few dependencies for Progression Boost to work:  
+* Progression Boost's Python dependencies are specified in [`requirements.txt`](Progression-Boost/requirements.txt) including `numpy` and `scipy`. You can install them using pip.  
+* Progression Boost only supports VapourSynth based metric calculation at the moment. By default, all presets use Vship, which can be installed from vsrepo (`vship_nvidia` or `vship_amd`) or AUR ([Cuda](https://aur.archlinux.org/packages/vapoursynth-plugin-vship-cuda-git) or [AMD](https://aur.archlinux.org/packages/vapoursynth-plugin-vship-amd-git)). However, you can easily switch to vszip or any other VapourSynth based methods in the config.  
+* Additionally, to ensure a better quality, all presets except for Preset-SSIMU2-Harmonic-Mean-Dampening by default use WWXD or Scxvid based scene detection methods. You would need to install them from vsrepo (`wwxd`, `scxvid`) or AUR ([WWXD](https://aur.archlinux.org/packages/vapoursynth-plugin-wwxd-git), [Scxvid](https://aur.archlinux.org/packages/vapoursynth-plugin-scxvid-git)). However, this is totally optional. If you can't get them installed, you can always switch back to av1an based scene detection in the config.  
+* If you want to test out the experimental feature character boosting, you would need to install additional dependencies vs-mlrt and akarin from vsrepo (`trt` or other suitable backend for vs-mlrt, `akarin`) or AUR ([trt](https://aur.archlinux.org/packages/vapoursynth-plugin-mlrt-trt-runtime-git) or other suitable runtime, [akarin](https://aur.archlinux.org/packages?K=vapoursynth-plugin-vsakarin)).
 
 ### Note
 
-– This script will get updated from time to time. Always use the newest version when you start a new project if you can.  
+* This script will get updated from time to time. Always use the newest version when you start a new project if you can.  
 
-– Progression Boost will encode the video multiple times until it can build a polynomial model. If you prefer a faster option that only encodes the video once and boost using a „magic number“, try Miss Moonlight's Lav1e or Trix's autoboost.  
+* Progression Boost will encode the video multiple times until it can build a polynomial model. If you prefer a faster option that only encodes the video once and boost using a „magic number“, try Miss Moonlight's Lav1e or Trix's autoboost.  
 
 ## Dispatch Server
 
